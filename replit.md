@@ -19,15 +19,13 @@ Project Anamnesis — pnpm workspace monorepo using TypeScript. A therapy sessio
 ## Artifacts
 
 - **api-server** (`artifacts/api-server/`) — Express 5 REST API at `/api`
-- **web-app** (`artifacts/web-app/`) — React + Vite + Tailwind frontend at `/` (Anamnesis patient intake + provider dashboard)
+- **web-app** (`artifacts/web-app/`) — React + Vite + Tailwind; on branch **`vr-experience`** the app is **VR-only** (therapy room at `/`, `/vr`, `/vr/:sessionId`).
 - **mockup-sandbox** (`artifacts/mockup-sandbox/`) — design sandbox at `/__mockup`
 
-## Frontend (web-app)
+## Frontend (web-app) — `vr-experience` branch
 
-- **Routes**: `/` landing, `/intake` patient intake, `/dashboard` session list, `/dashboard/:id` clinical brief
-- **API client**: auto-generated hooks from `@workspace/api-client-react` (Orval-generated)
-- **Charts**: Recharts for HR/HRV biometric timeline on clinical brief page
-- **Theme**: dark navy (`#050d1a` base) + white, permanent dark mode
+- **Routes**: `/`, `/vr`, `/vr/:sessionId` — WebXR therapy room only (no API client in this build).
+- **Theme**: scene uses its own dark palette; global CSS kept for Tailwind.
 
 ## OpenAPI Endpoints
 
@@ -77,6 +75,22 @@ Project Anamnesis — pnpm workspace monorepo using TypeScript. A therapy sessio
 ## Key Utilities
 
 - `artifacts/api-server/src/lib/biometricCorrelation.ts` — maps biometric readings to transcript segments by timestamp proximity, flags HR spikes ≥15% above baseline as "biometric subtext" events
+
+## VR Experience (`vr-experience` branch)
+
+- **Route**: `/vr` (or `/vr/:sessionId` to bind to an existing intake session).
+- **Runtime**: WebXR via React Three Fiber. Open the URL in the **Meta Quest
+  Pro browser** and tap **Enter VR**. WebXR requires HTTPS; the Replit dev
+  tunnel provides this automatically.
+- **Desktop preview**: the same URL in Chrome renders an orbit-camera preview
+  of the scene, so you can iterate on art/code without the headset.
+- **Assets**: drop `avatar.glb` and `therapy-room.glb` into
+  `artifacts/web-app/public/models/`. Until then the scene falls back to
+  procedural geometry defined in `src/vr/FallbackRoom.tsx` and
+  `src/vr/FallbackAvatar.tsx`. See `public/models/README.md` for asset sources
+  (Ready Player Me for the avatar, Poly Haven for the room).
+- **Voice pipeline**: not wired yet. `Avatar.speak()` is a documented no-op
+  seam for a future STT→Claude→TTS+viseme pipeline.
 
 ## Workspace Packages
 
