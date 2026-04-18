@@ -1,7 +1,7 @@
 import { useParams, Link } from "wouter";
-import { useGetBiometrics, useListSessions } from "@workspace/api-client-react";
+import { useGetBiometrics, useListSessions, getGetBiometricsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Activity, FileText, Stethoscope, ClipboardList, Target, Clock, Calendar } from "lucide-react";
+import { ArrowLeft, Activity, FileText, Stethoscope, ClipboardList, Target, Clock, Calendar, AlertCircle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format } from "date-fns";
 
@@ -9,8 +9,14 @@ export default function SessionBrief() {
   const params = useParams();
   const id = params.id ? parseInt(params.id, 10) : 0;
 
-  const { data: biometrics, isLoading: isLoadingBio } = useGetBiometrics(id);
-  const { data: sessions, isLoading: isLoadingSessions } = useListSessions();
+  const { data: biometrics, isLoading: isLoadingBio, isError: isBioError } = useGetBiometrics(id, {
+    query: {
+      enabled: !!id,
+      queryKey: getGetBiometricsQueryKey(id),
+      refetchInterval: 10000,
+    },
+  });
+  const { data: sessions, isLoading: isLoadingSessions, isError: isSessionsError } = useListSessions();
 
   const session = sessions?.find(s => s.id === id);
 
@@ -45,6 +51,17 @@ export default function SessionBrief() {
             <div className="h-96 bg-card animate-pulse rounded-xl border"></div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (isSessionsError) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background" data-testid="error-state">
+        <AlertCircle className="w-10 h-10 text-destructive mb-4" />
+        <p className="text-foreground font-semibold mb-1">Failed to load session data</p>
+        <p className="text-muted-foreground text-sm mb-4">Unable to reach the clinical server.</p>
+        <Link href="/dashboard" className="text-primary hover:underline text-sm">Return to Dashboard</Link>
       </div>
     );
   }
@@ -141,7 +158,12 @@ export default function SessionBrief() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-2">
-                {chartData.length > 0 ? (
+                {isBioError ? (
+                  <div className="h-[300px] w-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-destructive/40 rounded-lg mt-4 bg-destructive/5" data-testid="chart-error">
+                    <AlertCircle className="w-8 h-8 mb-2 text-destructive/60" />
+                    <p className="text-sm font-medium">Failed to load biometric data</p>
+                  </div>
+                ) : chartData.length > 0 ? (
                   <div className="h-[300px] w-full mt-4" data-testid="chart-biometrics">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
