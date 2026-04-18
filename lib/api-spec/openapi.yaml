@@ -1,0 +1,489 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: sessions
+    description: Intake session operations
+  - name: biometrics
+    description: Biometric reading operations
+  - name: therapists
+    description: Therapist operations
+  - name: matchmaking
+    description: Outcome-based therapist matching
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List intake sessions
+      description: Returns all intake sessions ordered by most recent first
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IntakeSession"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create intake session
+      description: Creates a new intake session and returns the session ID
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSession"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntakeSession"
+
+  /sessions/{sessionId}/end:
+    patch:
+      operationId: endSession
+      tags: [sessions]
+      summary: End intake session
+      description: Marks the session as ended by setting ended_at
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntakeSession"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/biometrics:
+    post:
+      operationId: addBiometrics
+      tags: [biometrics]
+      summary: Add biometric readings
+      description: Accepts a batch of HR/HRV readings and stores them for the session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BiometricBatch"
+      responses:
+        "201":
+          description: Readings stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiometricBatchResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: getBiometrics
+      tags: [biometrics]
+      summary: Get biometric readings for a session
+      description: Returns all readings for the session ordered by recorded_at
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BiometricReading"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/brief:
+    get:
+      operationId: getSessionBrief
+      tags: [sessions]
+      summary: Get clinical brief for a session
+      description: Returns a SOAP-structured clinical brief compiled from available transcript and biometrics
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Clinical brief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClinicalBrief"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /therapists:
+    get:
+      operationId: listTherapists
+      tags: [therapists]
+      summary: List all therapists
+      description: Returns all therapists with their outcome data
+      responses:
+        "200":
+          description: List of therapists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Therapist"
+
+  /therapists/{id}:
+    get:
+      operationId: getTherapist
+      tags: [therapists]
+      summary: Get a single therapist
+      description: Returns a single therapist including outcome data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Therapist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Therapist"
+        "404":
+          description: Therapist not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /match:
+    post:
+      operationId: matchTherapist
+      tags: [matchmaking]
+      summary: Match therapist to clinical profile
+      description: Returns the best-matched therapist based on outcome data success rates for the given clinical profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchRequest"
+      responses:
+        "200":
+          description: Best match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No therapists found for profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    IntakeSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          type: ["string", "null"]
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - label
+        - startedAt
+        - endedAt
+
+    NewSession:
+      type: object
+      properties:
+        label:
+          type: ["string", "null"]
+
+    BiometricReading:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        metric:
+          type: string
+          enum: [HR, HRV]
+        value:
+          type: number
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - metric
+        - value
+        - recordedAt
+
+    BiometricBatchItem:
+      type: object
+      properties:
+        metric:
+          type: string
+          enum: [HR, HRV]
+        value:
+          type: number
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+        - metric
+        - value
+        - recordedAt
+
+    BiometricBatch:
+      type: object
+      properties:
+        readings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BiometricBatchItem"
+      required:
+        - readings
+
+    BiometricBatchResponse:
+      type: object
+      properties:
+        inserted:
+          type: integer
+      required:
+        - inserted
+
+    OutcomeDataEntry:
+      type: object
+      properties:
+        successRate:
+          type: number
+          description: Success rate percentage (0-100)
+        caseCount:
+          type: integer
+          description: Number of cases treated
+      required:
+        - successRate
+        - caseCount
+
+    Therapist:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        outcomeData:
+          type: object
+          description: Map of clinical profile slug to outcome data
+          additionalProperties:
+            $ref: "#/components/schemas/OutcomeDataEntry"
+      required:
+        - id
+        - name
+        - specialties
+        - outcomeData
+
+    MatchRequest:
+      type: object
+      properties:
+        clinicalProfile:
+          type: string
+          description: Clinical profile slug (e.g. "complex-ptsd", "ocd")
+      required:
+        - clinicalProfile
+
+    MatchResponse:
+      type: object
+      properties:
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+        successRate:
+          type: number
+          description: Success rate for the matched clinical profile
+        explanation:
+          type: string
+          description: Human-readable explanation of the match
+      required:
+        - therapist
+        - successRate
+        - explanation
+
+    BiometricSubtextEvent:
+      type: object
+      properties:
+        transcriptSegmentId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        hrValue:
+          type: number
+        baselineHr:
+          type: number
+        spikePercent:
+          type: number
+        text:
+          type: string
+      required:
+        - transcriptSegmentId
+        - timestamp
+        - hrValue
+        - baselineHr
+        - spikePercent
+        - text
+
+    ClinicalBrief:
+      type: object
+      description: SOAP-structured clinical brief for a session
+      properties:
+        sessionId:
+          type: integer
+        generatedAt:
+          type: string
+          format: date-time
+        subjective:
+          type: string
+          description: Patient-reported symptoms and concerns (placeholder until Task 4)
+        objective:
+          type: object
+          description: Measurable biometric data observed during the session
+          properties:
+            averageHr:
+              type: ["number", "null"]
+            averageHrv:
+              type: ["number", "null"]
+            peakHr:
+              type: ["number", "null"]
+            readingCount:
+              type: integer
+            biometricSubtextEvents:
+              type: array
+              items:
+                $ref: "#/components/schemas/BiometricSubtextEvent"
+          required:
+            - averageHr
+            - averageHrv
+            - peakHr
+            - readingCount
+            - biometricSubtextEvents
+        assessment:
+          type: string
+          description: Clinical assessment (placeholder until Task 4)
+        plan:
+          type: string
+          description: Treatment plan recommendations (placeholder until Task 4)
+      required:
+        - sessionId
+        - generatedAt
+        - subjective
+        - objective
+        - assessment
+        - plan

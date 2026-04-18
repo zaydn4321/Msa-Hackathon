@@ -1,0 +1,78 @@
+Role & Objective:
+You are an expert Backend Systems Architect and Lead Python Developer. Your task is to build a complete, production-ready backend MVP for a Hackathon project called "Project Anamnesis". I have attached the project specification PDF for your reference. Read it thoroughly to understand the clinical workflows and business logic.
+
+Project Context:
+Project Anamnesis is a high-yield clinical triage system. It replaces the traditional 60-minute manual therapy intake with a 15-minute "Conversational Briefing". A patient talks to a low-latency 3D avatar powered by the OpenAI Realtime API. While they talk, their biometric data (Heart Rate/HRV) is streamed via an Apple Watch iOS app / TerraAPI. The backend must synthesize this audio and biometric data into a structured SOAP-format Clinical Brief and match the patient to a therapist using an Outcome-Based Matchmaking engine.
++4
+
+Tech Stack Requirements:
+
+Framework: FastAPI (Python) for robust async handling of WebSockets and LLM orchestration.
+
+Database: SQLite (via SQLAlchemy) for the hackathon MVP, so it works out of the box without external DB setup.
+
+LLM Orchestration: Use standard asynchronous Python functions (or LangChain if helpful) to manage the multi-agent calls.
+
+Architecture & Endpoints to Build:
+
+Please build out the complete folder structure (main.py, models.py, routes/, services/, etc.) and implement the following:
+
+1. Data Models (models.py)
+Create SQLAlchemy schemas for:
+
+Patient: Basic demographic info.
+
+Therapist: Must include fields for "Specialties" and a JSON field or separate table for "Outcome Data" (historical success rates by patient profile).
++2
+
+IntakeSession: To track session start/end times and link the generated Clinical Brief.
+
+2. WebSocket Voice Service (routes/voice.py & services/avatar.py)
+
+Create a WebSocket endpoint to handle the real-time audio stream.
+
+Mock the connection to the OpenAI Realtime API  so the frontend can stream audio in and get text/audio responses back.
+
+CRITICAL SAFETY GUARDRAIL: Implement a strict "Zero-Retention Data Policy". The code must explicitly delete or clear the raw audio buffers immediately after the transcript and Clinical Brief are generated.
+
+3. Biometric Webhook/Ingestion (routes/biometrics.py)
+
+Build a REST endpoint (POST /api/v1/biometrics/ingest) to receive HealthKit/TerraAPI payloads.
+
+The payload will include timestamps, Heart Rate (bpm), and HRV data.
++1
+
+Write a utility function that maps these biometric timestamps to the conversational transcript to identify "Biometric Subtext" (e.g., HR spikes when specific topics are mentioned).
+
+4. Multi-Agent Orchestration & Report Synthesis (services/llm_orchestrator.py)
+Implement the "Constellation Architecture":
+
+Primary Agent Service: Handles the conversational flow, goal refinement, and empathetic inquiry.
++3
+
+Safety Supervisor Service: A parallel process that analyzes the transcript chunks for crisis markers (e.g., self-harm). If triggered, it should return an emergency flag.
++1
+
+SOAP Generator Endpoint: (POST /api/v1/session/finalize). Takes the transcript and the biometric map, and prompts an LLM to generate a JSON response formatted as a structured SOAP note (Subjective, Objective, Assessment, Plan).
++1
+
+5. Outcome-Based Matchmaking Logic (routes/matching.py)
+
+Build an endpoint (POST /api/v1/match) that takes the extracted clinical profile (e.g., "High-functioning anxiety", "Complex PTSD").
++1
+
+Write the query logic to bypass generic specialties and match the patient with the Therapist who has the highest statistical success rate for that specific profile.
+
+Execution Instructions for Replit:
+
+Generate the fully functional codebase based on these specifications.
+
+Include a requirements.txt.
+
+Include a seed_data.py script to populate the SQLite database with 3 mock therapists (with varying outcome data) and 1 mock patient so we can test the matchmaking engine immediately.
+
+Provide a README.md with instructions on how to start the FastAPI server and what .env variables are required.
+
+Because you'll be managing simultaneous streams (voice data via WebSockets and biometric data via REST/Webhooks), asynchronous handling is going to be key here.
+
+Are you planning to use raw OpenAI API calls for the "Primary Agent" and "Safety Supervisors," or would you prefer to use a framework like LangChain to manage the multi-agent routing?

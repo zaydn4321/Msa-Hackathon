@@ -1,0 +1,458 @@
+// !$*UTF8*$!
+{
+        archiveVersion = 1;
+        classes = {
+        };
+        objectVersion = 56;
+        objects = {
+
+/* Begin PBXBuildFile section */
+                AA4001000000000000000000 /* AnamnesisRelayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1001000000000000000000 /* AnamnesisRelayApp.swift */; };
+                AA4002000000000000000000 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1002000000000000000000 /* ContentView.swift */; };
+                AA4003000000000000000000 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1003000000000000000000 /* SessionManager.swift */; };
+                AA4004000000000000000000 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1004000000000000000000 /* APIClient.swift */; };
+                AA4005000000000000000000 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1005000000000000000000 /* Config.swift */; };
+                AA5001000000000000000000 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2001000000000000000000 /* WatchApp.swift */; };
+                AA5002000000000000000000 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2002000000000000000000 /* WatchContentView.swift */; };
+                AA5003000000000000000000 /* WatchSessionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2003000000000000000000 /* WatchSessionDelegate.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+                AA1001000000000000000000 /* AnamnesisRelayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnamnesisRelayApp.swift; sourceTree = "<group>"; };
+                AA1002000000000000000000 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+                AA1003000000000000000000 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+                AA1004000000000000000000 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+                AA1005000000000000000000 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+                AA2001000000000000000000 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
+                AA2002000000000000000000 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
+                AA2003000000000000000000 /* WatchSessionDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionDelegate.swift; sourceTree = "<group>"; };
+                AA3001000000000000000000 /* AnamnesisRelay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnamnesisRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
+                AA3002000000000000000000 /* AnamnesisRelayWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnamnesisRelayWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+                AA6002000000000000000000 /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                AA7002000000000000000000 /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+                AA0002000000000000000000 /* AnamnesisRelay */ = {
+                        isa = PBXGroup;
+                        children = (
+                                AA0004000000000000000000 /* AnamnesisRelay */,
+                                AA0005000000000000000000 /* AnamnesisRelayWatch */,
+                                AA0003000000000000000000 /* Products */,
+                        );
+                        sourceTree = "<group>";
+                };
+                AA0003000000000000000000 /* Products */ = {
+                        isa = PBXGroup;
+                        children = (
+                                AA3001000000000000000000 /* AnamnesisRelay.app */,
+                                AA3002000000000000000000 /* AnamnesisRelayWatch.app */,
+                        );
+                        name = Products;
+                        sourceTree = "<group>";
+                };
+                AA0004000000000000000000 /* AnamnesisRelay */ = {
+                        isa = PBXGroup;
+                        children = (
+                                AA1001000000000000000000 /* AnamnesisRelayApp.swift */,
+                                AA1002000000000000000000 /* ContentView.swift */,
+                                AA1003000000000000000000 /* SessionManager.swift */,
+                                AA1004000000000000000000 /* APIClient.swift */,
+                                AA1005000000000000000000 /* Config.swift */,
+                        );
+                        path = AnamnesisRelay;
+                        sourceTree = "<group>";
+                };
+                AA0005000000000000000000 /* AnamnesisRelayWatch */ = {
+                        isa = PBXGroup;
+                        children = (
+                                AA2001000000000000000000 /* WatchApp.swift */,
+                                AA2002000000000000000000 /* WatchContentView.swift */,
+                                AA2003000000000000000000 /* WatchSessionDelegate.swift */,
+                        );
+                        path = AnamnesisRelayWatch;
+                        sourceTree = "<group>";
+                };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+                AA8001000000000000000000 /* AnamnesisRelay */ = {
+                        isa = PBXNativeTarget;
+                        buildConfigurationList = AA9002000000000000000000 /* Build configuration list for PBXNativeTarget "AnamnesisRelay" */;
+                        buildPhases = (
+                                AA6001000000000000000000 /* Sources */,
+                                AA6002000000000000000000 /* Frameworks */,
+                                AA6003000000000000000000 /* Resources */,
+                        );
+                        buildRules = (
+                        );
+                        dependencies = (
+                        );
+                        name = AnamnesisRelay;
+                        productName = AnamnesisRelay;
+                        productReference = AA3001000000000000000000 /* AnamnesisRelay.app */;
+                        productType = "com.apple.product-type.application";
+                };
+                AA8002000000000000000000 /* AnamnesisRelayWatch */ = {
+                        isa = PBXNativeTarget;
+                        buildConfigurationList = AA9003000000000000000000 /* Build configuration list for PBXNativeTarget "AnamnesisRelayWatch" */;
+                        buildPhases = (
+                                AA7001000000000000000000 /* Sources */,
+                                AA7002000000000000000000 /* Frameworks */,
+                                AA7003000000000000000000 /* Resources */,
+                        );
+                        buildRules = (
+                        );
+                        dependencies = (
+                        );
+                        name = AnamnesisRelayWatch;
+                        productName = AnamnesisRelayWatch;
+                        productReference = AA3002000000000000000000 /* AnamnesisRelayWatch.app */;
+                        productType = "com.apple.product-type.application";
+                };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+                AA0001000000000000000000 /* Project object */ = {
+                        isa = PBXProject;
+                        attributes = {
+                                BuildIndependentTargetsInParallel = 1;
+                                LastSwiftUpdateCheck = 1530;
+                                LastUpgradeCheck = 1530;
+                                TargetAttributes = {
+                                        AA8001000000000000000000 = {
+                                                CreatedOnToolsVersion = 15.3;
+                                        };
+                                        AA8002000000000000000000 = {
+                                                CreatedOnToolsVersion = 15.3;
+                                        };
+                                };
+                        };
+                        buildConfigurationList = AA9001000000000000000000 /* Build configuration list for PBXProject "AnamnesisRelay" */;
+                        compatibilityVersion = "Xcode 14.0";
+                        developmentRegion = en;
+                        hasScannedForEncodings = 0;
+                        knownRegions = (
+                                en,
+                                Base,
+                        );
+                        mainGroup = AA0002000000000000000000;
+                        productRefGroup = AA0003000000000000000000 /* Products */;
+                        projectDirPath = "";
+                        projectRoot = "";
+                        targets = (
+                                AA8001000000000000000000 /* AnamnesisRelay */,
+                                AA8002000000000000000000 /* AnamnesisRelayWatch */,
+                        );
+                };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+                AA6003000000000000000000 /* Resources */ = {
+                        isa = PBXResourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                AA7003000000000000000000 /* Resources */ = {
+                        isa = PBXResourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+                AA6001000000000000000000 /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                AA4001000000000000000000 /* AnamnesisRelayApp.swift in Sources */,
+                                AA4002000000000000000000 /* ContentView.swift in Sources */,
+                                AA4003000000000000000000 /* SessionManager.swift in Sources */,
+                                AA4004000000000000000000 /* APIClient.swift in Sources */,
+                                AA4005000000000000000000 /* Config.swift in Sources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                AA7001000000000000000000 /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                AA5001000000000000000000 /* WatchApp.swift in Sources */,
+                                AA5002000000000000000000 /* WatchContentView.swift in Sources */,
+                                AA5003000000000000000000 /* WatchSessionDelegate.swift in Sources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+                AA9101000000000000000000 /* Debug */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ALWAYS_SEARCH_USER_PATHS = NO;
+                                CLANG_ANALYZER_NONNULL = YES;
+                                CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+                                CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+                                CLANG_ENABLE_MODULES = YES;
+                                CLANG_ENABLE_OBJC_ARC = YES;
+                                CLANG_ENABLE_OBJC_WEAK = YES;
+                                CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+                                CLANG_WARN_BOOL_CONVERSION = YES;
+                                CLANG_WARN_COMMA = YES;
+                                CLANG_WARN_CONSTANT_CONVERSION = YES;
+                                CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+                                CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+                                CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+                                CLANG_WARN_EMPTY_BODY = YES;
+                                CLANG_WARN_ENUM_CONVERSION = YES;
+                                CLANG_WARN_INFINITE_RECURSION = YES;
+                                CLANG_WARN_INT_CONVERSION = YES;
+                                CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+                                CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+                                CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+                                CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+                                CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+                                CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+                                CLANG_WARN_STRICT_PROTOTYPES = YES;
+                                CLANG_WARN_SUSPICIOUS_MOVE = YES;
+                                CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+                                CLANG_WARN_UNREACHABLE_CODE = YES;
+                                CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+                                COPY_PHASE_STRIP = NO;
+                                DEBUG_INFORMATION_FORMAT = dwarf;
+                                ENABLE_STRICT_OBJC_MSGSEND = YES;
+                                ENABLE_TESTABILITY = YES;
+                                ENABLE_USER_SCRIPT_SANDBOXING = YES;
+                                GCC_C_LANGUAGE_STANDARD = gnu17;
+                                GCC_DYNAMIC_NO_PIC = NO;
+                                GCC_NO_COMMON_BLOCKS = YES;
+                                GCC_OPTIMIZATION_LEVEL = 0;
+                                GCC_PREPROCESSOR_DEFINITIONS = (
+                                        "DEBUG=1",
+                                        "$(inherited)",
+                                );
+                                GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+                                GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+                                GCC_WARN_UNDECLARED_SELECTOR = YES;
+                                GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+                                GCC_WARN_UNUSED_FUNCTION = YES;
+                                GCC_WARN_UNUSED_VARIABLE = YES;
+                                MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+                                MTL_FAST_MATH = YES;
+                                ONLY_ACTIVE_ARCH = YES;
+                                SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+                                SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+                        };
+                        name = Debug;
+                };
+                AA9102000000000000000000 /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ALWAYS_SEARCH_USER_PATHS = NO;
+                                CLANG_ANALYZER_NONNULL = YES;
+                                CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+                                CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+                                CLANG_ENABLE_MODULES = YES;
+                                CLANG_ENABLE_OBJC_ARC = YES;
+                                CLANG_ENABLE_OBJC_WEAK = YES;
+                                CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+                                CLANG_WARN_BOOL_CONVERSION = YES;
+                                CLANG_WARN_COMMA = YES;
+                                CLANG_WARN_CONSTANT_CONVERSION = YES;
+                                CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+                                CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+                                CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+                                CLANG_WARN_EMPTY_BODY = YES;
+                                CLANG_WARN_ENUM_CONVERSION = YES;
+                                CLANG_WARN_INFINITE_RECURSION = YES;
+                                CLANG_WARN_INT_CONVERSION = YES;
+                                CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+                                CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+                                CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+                                CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+                                CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+                                CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+                                CLANG_WARN_STRICT_PROTOTYPES = YES;
+                                CLANG_WARN_SUSPICIOUS_MOVE = YES;
+                                CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+                                CLANG_WARN_UNREACHABLE_CODE = YES;
+                                CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+                                COPY_PHASE_STRIP = NO;
+                                DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+                                ENABLE_NS_ASSERTIONS = NO;
+                                ENABLE_STRICT_OBJC_MSGSEND = YES;
+                                ENABLE_USER_SCRIPT_SANDBOXING = YES;
+                                GCC_C_LANGUAGE_STANDARD = gnu17;
+                                GCC_NO_COMMON_BLOCKS = YES;
+                                GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+                                GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+                                GCC_WARN_UNDECLARED_SELECTOR = YES;
+                                GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+                                GCC_WARN_UNUSED_FUNCTION = YES;
+                                GCC_WARN_UNUSED_VARIABLE = YES;
+                                MTL_ENABLE_DEBUG_INFO = NO;
+                                MTL_FAST_MATH = YES;
+                                SWIFT_COMPILATION_MODE = wholemodule;
+                                SWIFT_OPTIMIZATION_LEVEL = "-O";
+                                VALIDATE_PRODUCT = YES;
+                        };
+                        name = Release;
+                };
+                AA9201000000000000000000 /* Debug */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                DEVELOPMENT_ASSET_PATHS = "";
+                                ENABLE_PREVIEWS = YES;
+                                GENERATE_INFOPLIST_FILE = YES;
+                                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                                INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+                                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                                INFOPLIST_KEY_NSHealthShareUsageDescription = "Anamnesis reads your heart rate and HRV during the intake session to provide biometric context to your care provider.";
+                                INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Anamnesis logs workout sessions to Apple Health to track your intake biometric data.";
+                                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                                LD_RUNPATH_SEARCH_PATHS = (
+                                        "$(inherited)",
+                                        "@executable_path/Frameworks",
+                                );
+                                MARKETING_VERSION = 1.0;
+                                PRODUCT_BUNDLE_IDENTIFIER = "com.anamnesis.relay";
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_EMIT_LOC_STRINGS = YES;
+                                SWIFT_VERSION = 5.9;
+                                TARGETED_DEVICE_FAMILY = 1;
+                        };
+                        name = Debug;
+                };
+                AA9202000000000000000000 /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                DEVELOPMENT_ASSET_PATHS = "";
+                                ENABLE_PREVIEWS = YES;
+                                GENERATE_INFOPLIST_FILE = YES;
+                                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                                INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+                                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                                INFOPLIST_KEY_NSHealthShareUsageDescription = "Anamnesis reads your heart rate and HRV during the intake session to provide biometric context to your care provider.";
+                                INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Anamnesis logs workout sessions to Apple Health to track your intake biometric data.";
+                                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                                LD_RUNPATH_SEARCH_PATHS = (
+                                        "$(inherited)",
+                                        "@executable_path/Frameworks",
+                                );
+                                MARKETING_VERSION = 1.0;
+                                PRODUCT_BUNDLE_IDENTIFIER = "com.anamnesis.relay";
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_EMIT_LOC_STRINGS = YES;
+                                SWIFT_VERSION = 5.9;
+                                TARGETED_DEVICE_FAMILY = 1;
+                        };
+                        name = Release;
+                };
+                AA9301000000000000000000 /* Debug */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                GENERATE_INFOPLIST_FILE = YES;
+                                INFOPLIST_KEY_WKApplication_IsIndependentlyInstalledApp = NO;
+                                MARKETING_VERSION = 1.0;
+                                PRODUCT_BUNDLE_IDENTIFIER = "com.anamnesis.relay.watchkitapp";
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SDKROOT = watchos;
+                                SKIP_INSTALL = YES;
+                                SWIFT_EMIT_LOC_STRINGS = YES;
+                                SWIFT_VERSION = 5.9;
+                                TARGETED_DEVICE_FAMILY = 4;
+                                WATCHOS_DEPLOYMENT_TARGET = 10.0;
+                        };
+                        name = Debug;
+                };
+                AA9302000000000000000000 /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                GENERATE_INFOPLIST_FILE = YES;
+                                INFOPLIST_KEY_WKApplication_IsIndependentlyInstalledApp = NO;
+                                MARKETING_VERSION = 1.0;
+                                PRODUCT_BUNDLE_IDENTIFIER = "com.anamnesis.relay.watchkitapp";
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SDKROOT = watchos;
+                                SKIP_INSTALL = YES;
+                                SWIFT_EMIT_LOC_STRINGS = YES;
+                                SWIFT_VERSION = 5.9;
+                                TARGETED_DEVICE_FAMILY = 4;
+                                WATCHOS_DEPLOYMENT_TARGET = 10.0;
+                        };
+                        name = Release;
+                };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+                AA9001000000000000000000 /* Build configuration list for PBXProject "AnamnesisRelay" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                AA9101000000000000000000 /* Debug */,
+                                AA9102000000000000000000 /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
+                AA9002000000000000000000 /* Build configuration list for PBXNativeTarget "AnamnesisRelay" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                AA9201000000000000000000 /* Debug */,
+                                AA9202000000000000000000 /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
+                AA9003000000000000000000 /* Build configuration list for PBXNativeTarget "AnamnesisRelayWatch" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                AA9301000000000000000000 /* Debug */,
+                                AA9302000000000000000000 /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
+/* End XCConfigurationList section */
+
+        };
+        rootObject = AA0001000000000000000000 /* Project object */;
+}
