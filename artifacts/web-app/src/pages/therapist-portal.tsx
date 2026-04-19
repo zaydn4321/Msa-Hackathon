@@ -147,6 +147,14 @@ export default function TherapistPortal() {
       })
       .catch(() => setLoading(false));
     refreshMatches();
+    // Live updates: poll every 4s, and refresh immediately when the tab regains focus.
+    const interval = setInterval(refreshMatches, 4000);
+    const onFocus = () => refreshMatches();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [isSignedIn]);
 
   const updateMatch = async (
