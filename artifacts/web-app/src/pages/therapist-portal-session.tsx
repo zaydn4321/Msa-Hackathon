@@ -289,7 +289,7 @@ export default function TherapistPortalSession() {
             {brief ? (
               <div className="space-y-5">
                 <SoapSection title="Subjective" body={brief.subjective} />
-                <SoapSection title="Objective" body={brief.objective} />
+                <SoapSection title="Objective" body={formatObjective(brief.objective)} />
                 <SoapSection title="Assessment" body={brief.assessment} />
                 <SoapSection title="Plan" body={brief.plan} />
               </div>
@@ -306,6 +306,26 @@ export default function TherapistPortalSession() {
       </div>
     </div>
   );
+}
+
+function formatObjective(o: any): string | null {
+  if (!o) return null;
+  if (typeof o === "string") return o;
+  const parts: string[] = [];
+  if (o.readingCount) {
+    parts.push(`Captured ${o.readingCount} biometric reading${o.readingCount === 1 ? "" : "s"} during the session.`);
+  }
+  if (o.averageHr != null) {
+    parts.push(`Average heart rate ${Math.round(o.averageHr)} bpm${o.peakHr != null ? ` (peak ${Math.round(o.peakHr)} bpm)` : ""}.`);
+  }
+  if (o.averageHrv != null) {
+    parts.push(`Average HRV ${Math.round(o.averageHrv)} ms.`);
+  }
+  const events = o.biometricSubtextEvents?.length ?? 0;
+  if (events > 0) {
+    parts.push(`${events} sympathetic activation moment${events === 1 ? "" : "s"} correlated to transcript content.`);
+  }
+  return parts.length > 0 ? parts.join(" ") : "No biometric telemetry was captured for this session.";
 }
 
 function SoapSection({ title, body }: { title: string; body?: string | null }) {
