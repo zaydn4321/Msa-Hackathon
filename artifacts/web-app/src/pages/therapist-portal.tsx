@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, Redirect } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, User, Search, Plus, Activity, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Inbox, ClipboardCheck, ClipboardList } from "lucide-react";
+import { Loader2, User, Search, Activity, FileText, CheckCircle2, ChevronRight, AlertTriangle, TrendingUp, Inbox, ClipboardCheck, ClipboardList } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -205,6 +205,16 @@ export default function TherapistPortal() {
   } | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  const acceptedPatientIds = useMemo(
+    () =>
+      new Set(
+        incomingMatches
+          .filter((m) => m.match.status === "accepted")
+          .map((m) => m.match.patientId),
+      ),
+    [incomingMatches],
+  );
+
   const refreshMatches = () => {
     fetch("/api/therapist/my-matches", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { matches: [] }))
@@ -352,14 +362,6 @@ export default function TherapistPortal() {
                 Re-screen all due ({stats.dueRescreens.filter((d) => !d.hasOpenRequest).length})
               </Button>
             )}
-            <Button variant="outline" className="rounded-xl h-10 border-[#E8E1D7] text-[#2D2626] font-medium hidden sm:flex">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <Button className="rounded-xl h-10 bg-[#9B7250] hover:bg-[#8B6B5D] font-medium">
-              <Plus className="h-4 w-4 mr-2" />
-              New Patient
-            </Button>
           </div>
         </div>
 
@@ -644,12 +646,18 @@ export default function TherapistPortal() {
                   </div>
 
                   <div className="flex items-center gap-2 pt-4 border-t border-[#E8E1D7]">
-                    <Link href={`/therapist-portal/sessions/${entry.session.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full h-9 rounded-lg border-[#E8E1D7] text-[13px] font-medium text-[#2D2626]">
-                        Open Brief
-                      </Button>
-                    </Link>
-                    {entry.patient && (
+                    {acceptedPatientIds.has(entry.patient?.id ?? -1) ? (
+                      <Link href={`/therapist-portal/sessions/${entry.session.id}`} className="flex-1">
+                        <Button variant="outline" className="w-full h-9 rounded-lg border-[#E8E1D7] text-[13px] font-medium text-[#2D2626]">
+                          Open Brief
+                        </Button>
+                      </Link>
+                    ) : (
+                      <span className="flex-1 text-[12px] text-muted-foreground italic px-2">
+                        Brief locked until match accepted
+                      </span>
+                    )}
+                    {entry.patient && acceptedPatientIds.has(entry.patient.id) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -664,9 +672,6 @@ export default function TherapistPortal() {
                         <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Re-screen
                       </Button>
                     )}
-                    <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg border-[#E8E1D7] text-[#5C544F]">
-                      <MessageSquare className="h-4 w-4" />
-                    </Button>
                   </div>
                   {entry.patient && (
                     <ScreenerActivityPanel

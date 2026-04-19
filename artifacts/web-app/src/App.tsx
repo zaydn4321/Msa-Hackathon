@@ -16,6 +16,7 @@ import OnboardingPage from "@/pages/onboarding";
 import DemoPage from "@/pages/demo";
 import PatientPortal from "@/pages/patient-portal";
 import TherapistPortal from "@/pages/therapist-portal";
+import TherapistPortalSession from "@/pages/therapist-portal-session";
 import Results from "@/pages/results";
 import ScreenerByToken from "@/pages/screener";
 import ScreenerExport from "@/pages/screener-export";
@@ -245,6 +246,9 @@ function Router() {
       </Route>
       <Route path="/therapist-portal">
         {() => <RequireSignIn component={TherapistPortal} redirectTo="/sign-in" layout={AppLayout} />}
+      </Route>
+      <Route path="/therapist-portal/sessions/:sessionId">
+        {() => <RequireSignIn component={TherapistPortalSession} redirectTo="/sign-in" layout={AppLayout} />}
       </Route>
       <Route path="/intake/new">
         {() => <RequirePatient component={IntakeNew} layout={AppLayout} />}

@@ -3,9 +3,7 @@ import { cn } from "@/lib/utils";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { useAuth, useUser } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Home as HomeIcon, LayoutDashboard, Users, Calendar, UserCog, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Home as HomeIcon, LayoutDashboard, Users, Calendar, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function MarketingLayout({ children }: { children: React.ReactNode }) {
@@ -35,11 +33,6 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
 
             <nav className="hidden md:flex items-center gap-7 text-[15px]">
               <Link href="/" className={cn("transition-colors hover:text-foreground", location === "/" ? "text-foreground font-medium" : "text-muted-foreground")}>Home</Link>
-              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">Product</Link>
-              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Patients</Link>
-              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Therapists</Link>
-              <Link href="/therapists" className={cn("transition-colors hover:text-foreground", location.startsWith("/therapists") ? "text-foreground font-medium" : "text-muted-foreground")}>Directory</Link>
-              <Link href="/demo" className={cn("transition-colors hover:text-foreground", location === "/demo" ? "text-foreground font-medium" : "text-muted-foreground")}>Demo</Link>
             </nav>
           </div>
 
@@ -66,71 +59,14 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-const PRIOR_PATIENT_KEY = "anamnesis.dev.priorPatientId";
-
-function useDevRoleSwitch(currentRole: "patient" | "therapist" | null | undefined) {
-  const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
-  const [enabled, setEnabled] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/dev/role-switch/enabled", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => setEnabled(!!d.enabled))
-      .catch(() => setEnabled(false));
-  }, []);
-
-  const switchTo = async (target: "patient" | "therapist") => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const priorPatientId =
-        target === "patient"
-          ? Number(localStorage.getItem(PRIOR_PATIENT_KEY)) || undefined
-          : undefined;
-      const res = await fetch("/api/dev/role-switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ role: target, priorPatientId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      if (target === "therapist" && data.priorPatientId) {
-        localStorage.setItem(PRIOR_PATIENT_KEY, String(data.priorPatientId));
-      }
-      if (target === "patient") {
-        localStorage.removeItem(PRIOR_PATIENT_KEY);
-      }
-      await queryClient.invalidateQueries({ queryKey: ["auth/me"] });
-      setLocation(target === "therapist" ? "/therapist-portal" : "/patient-portal");
-    } catch (err) {
-      console.error("[dev role switch]", err);
-      alert("Role switch failed — check console.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return {
-    enabled,
-    busy,
-    switchTo,
-    canViewAsTherapist: enabled && currentRole === "patient",
-    canViewAsPatient: enabled && currentRole === "therapist",
-  };
-}
-
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const { signOut } = useAuth();
   const { user } = useUser();
   const { data: currentUser } = useCurrentUser();
 
   const isPatient = currentUser?.role === "patient";
   const isTherapist = currentUser?.role === "therapist";
-  const devSwitch = useDevRoleSwitch(currentUser?.role);
 
   const initials = user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?";
   const name = user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "User";
@@ -175,36 +111,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-sidebar-border space-y-2">
-          {devSwitch.enabled && (devSwitch.canViewAsTherapist || devSwitch.canViewAsPatient) && (
-            <button
-              onClick={() =>
-                devSwitch.switchTo(devSwitch.canViewAsTherapist ? "therapist" : "patient")
-              }
-              disabled={devSwitch.busy}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-primary bg-primary/10 hover:bg-primary/15 border border-primary/15 transition-colors disabled:opacity-60"
-              title="Dev only — toggles between patient and therapist views"
-            >
-              {devSwitch.busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserCog className="h-4 w-4" />
-              )}
-              {devSwitch.canViewAsTherapist ? "View as therapist" : "View as patient"}
-            </button>
-          )}
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-accent/50 transition-colors">
+        <div className="p-4 mt-auto border-t border-sidebar-border space-y-3">
+          <div className="flex items-center gap-3 px-2">
             <Avatar className="h-9 w-9 bg-muted border border-border">
               <AvatarImage src={user?.imageUrl} />
               <AvatarFallback className="bg-primary/10 text-primary font-serif text-sm">{initials}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-medium text-foreground truncate">{name}</p>
-              <button onClick={() => signOut({ redirectUrl: "/" })} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-                Sign out
-              </button>
-            </div>
+            <p className="text-[14px] font-medium text-foreground truncate flex-1 min-w-0">{name}</p>
           </div>
+          <button
+            onClick={() => signOut({ redirectUrl: "/" })}
+            className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-lg bg-primary text-primary-foreground text-[14px] font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
         </div>
       </aside>
 
