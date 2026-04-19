@@ -29,6 +29,7 @@ import {
   assignTherapistForProfile,
   inferClinicalProfile,
 } from "../lib/therapistMatching";
+import { runAgenticPipeline } from "../lib/agenticPipeline";
 import { ensureTherapistsProvisioned } from "../lib/ensureTherapists";
 import { getTherapistAccountByName } from "../lib/therapistRoster";
 import { getConversationTranscript } from "./conversation";
@@ -408,8 +409,59 @@ async function buildAndPersistBrief(
   const { brief, phq9, gad7 } = await generateClinicalBrief(sessionId, transcript, biometrics);
 
   const therapists = await ensureTherapistsProvisioned();
-  const profileSlug = brief.clinicalProfile ?? "anxiety";
-  const [assignedTherapist] = assignTherapistForProfile(therapists, profileSlug, 1);
+
+  // Run the agentic recommendation pipeline. On any failure, fall back to the
+  // legacy single-call assignment but still mark the trace as degraded so the
+  // UI can show the user.
+  let pipelineTrace: Awaited<ReturnType<typeof runAgenticPipeline>>["trace"] | null = null;
+  let assignedTherapistId: number | null = null;
+  try {
+    const pipeline = await runAgenticPipeline({
+      sessionId,
+      transcript,
+      biometrics,
+      phq9,
+      gad7,
+      therapists,
+      topN: 3,
+    });
+    pipelineTrace = pipeline.trace;
+    assignedTherapistId = pipeline.matches[0]?.therapistId ?? null;
+    // Mirror the inferred slug into the legacy clinicalProfile field so older
+    // UI paths keep working until they migrate to clinicalProfileV2.
+    if (pipeline.primaryProfile) brief.clinicalProfile = pipeline.primaryProfile;
+  } catch (err) {
+    console.error(`[agent:orchestrator] Pipeline failed for session ${sessionId}, falling back:`, err);
+    const profileSlug = brief.clinicalProfile ?? "anxiety";
+    const [assignedTherapist] = assignTherapistForProfile(therapists, profileSlug, 1);
+    assignedTherapistId = assignedTherapist?.therapist.id ?? null;
+    // Persist a minimal degraded trace so the UI can clearly indicate that
+    // the agentic pipeline failed and we fell back to legacy heuristics.
+    pipelineTrace = {
+      pipelineVersion: "v2.0.0",
+      generatedAt: new Date().toISOString(),
+      degraded: true,
+      degradedReason: `Pipeline failed: ${err instanceof Error ? err.message : String(err)}`,
+      plan: [],
+      planRationale: "Pipeline orchestrator threw — using legacy single-call heuristic fallback.",
+      steps: [
+        {
+          stage: "orchestrator",
+          label: "Agentic pipeline",
+          startedAt: new Date().toISOString(),
+          durationMs: 0,
+          status: "error",
+          summary: "Pipeline orchestrator threw; legacy heuristic match was used instead.",
+          detail: { error: err instanceof Error ? err.message : String(err) },
+        },
+      ],
+      clinicalProfileV2: null,
+      candidatePoolSize: therapists.length,
+      shortlistSize: 0,
+      scored: [],
+      finalMatchIds: assignedTherapistId ? [assignedTherapistId] : [],
+    };
+  }
 
   // Preserve previous approval timestamps if they exist (re-generation should
   // not silently un-approve a clinician-approved screener).
@@ -430,9 +482,10 @@ async function buildAndPersistBrief(
     .set({
       endedAt: options.endTavus ? new Date() : undefined,
       clinicalBrief: brief,
-      assignedTherapistId: assignedTherapist?.therapist.id ?? null,
+      assignedTherapistId,
       phq9: mergedPhq9,
       gad7: mergedGad7,
+      agentTrace: pipelineTrace ?? undefined,
     })
     .where(eq(intakeSessionsTable.id, sessionId))
     .returning();
@@ -445,12 +498,12 @@ async function buildAndPersistBrief(
       endedAt: updated.endedAt ?? null,
     },
     brief,
-    assignedTherapistId: assignedTherapist?.therapist.id ?? null,
+    assignedTherapistId,
     phq9: mergedPhq9,
     gad7: mergedGad7,
   });
 
-  return { brief, updated, assignedTherapistId: assignedTherapist?.therapist.id ?? null, transcriptOk };
+  return { brief, updated, assignedTherapistId, transcriptOk };
 }
 
 const FALLBACK_NO_TRANSCRIPT_MARKER = "No conversational transcript was captured";
