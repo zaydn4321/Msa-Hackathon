@@ -190,9 +190,24 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 function SignInPage() {
+  const demoEmail = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("demo_email") ?? undefined
+    : undefined;
   return (
     <AuthLayout>
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/portal`} />
+      {demoEmail && (
+        <div className="mb-5 rounded-lg border border-[#E8E1D7] bg-[#F5EFE6] px-4 py-3 text-[13px] text-[#5C544F]">
+          <span className="font-medium text-[#2D2626]">Demo sign-in.</span>{" "}
+          Email <span className="font-mono">{demoEmail}</span> is prefilled — paste the password from your clipboard or use the shared demo password.
+        </div>
+      )}
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        fallbackRedirectUrl={`${basePath}/portal`}
+        initialValues={demoEmail ? { emailAddress: demoEmail } : undefined}
+      />
     </AuthLayout>
   );
 }

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useClerk, useAuth } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Copy, Check, LogIn, UserRound, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 type DemoAccount = {
   role: "patient" | "therapist";
@@ -61,7 +62,8 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 export default function DemoPage() {
   const [, setLocation] = useLocation();
   const { signOut } = useClerk();
-  const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const { isSignedIn } = useAuth();
+  const { toast } = useToast();
   const [signingIn, setSigningIn] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<{ accounts: DemoAccount[] }>({
@@ -82,30 +84,22 @@ export default function DemoPage() {
     };
   }, [data]);
 
-  // Auto-sign-in flow: if URL has ?email=..., copy + sign-out (if needed) +
-  // route to sign-in. Used by the "Sign in as" button below.
-  useEffect(() => {
-    if (!authLoaded) return;
-    const params = new URLSearchParams(window.location.search);
-    const target = params.get("signin");
-    if (!target) return;
-    (async () => {
-      await copy(target);
-      if (isSignedIn) {
-        await signOut({ redirectUrl: `${basePath}/sign-in` });
-      } else {
-        setLocation("/sign-in");
-      }
-    })();
-  }, [authLoaded, isSignedIn, signOut, setLocation]);
-
   async function signInAs(email: string) {
     setSigningIn(email);
-    await copy(email);
+    const copied = await copy(email);
+    const target = `/sign-in?demo_email=${encodeURIComponent(email)}`;
+
+    toast({
+      title: copied ? "Email copied" : "Use this email to sign in",
+      description: copied
+        ? `Pasted into the form. Password: ${DEMO_PASSWORD}`
+        : `${email} — password: ${DEMO_PASSWORD}`,
+    });
+
     if (isSignedIn) {
-      await signOut({ redirectUrl: `${basePath}/sign-in` });
+      await signOut({ redirectUrl: `${basePath}${target}` });
     } else {
-      setLocation("/sign-in");
+      setLocation(target);
     }
   }
 
