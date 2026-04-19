@@ -3,6 +3,7 @@ import { db, patientsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureTherapistsProvisioned } from "./ensureTherapists";
 import { seedSpecialTherapists } from "./seedSpecialTherapists";
+import { seedDemoMatches } from "./seedDemoMatches";
 
 const demoPatients = [
   {
@@ -49,6 +50,8 @@ export async function bootstrapDemoData() {
         .where(eq(patientsTable.id, existing.id));
     }
   }
+
+  await seedDemoMatches();
 
   logger.info(
     { therapistCount: therapists.length, demoPatientCount: demoPatients.length },
