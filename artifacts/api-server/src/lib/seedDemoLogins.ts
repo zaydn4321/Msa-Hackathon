@@ -99,10 +99,10 @@ export async function seedDemoLogins(): Promise<void> {
         }
       }
 
-      if (!clerkUser) {
-        const [first, ...rest] = displayName.replace(/,.*$/, "").trim().split(/\s+/);
-        const last = rest.length > 0 ? rest[rest.length - 1] : undefined;
+      const [first, ...rest] = displayName.replace(/,.*$/, "").trim().split(/\s+/);
+      const last = rest.length > 0 ? rest.join(" ") : undefined;
 
+      if (!clerkUser) {
         clerkUser = await clerkClient.users.createUser({
           emailAddress: [email],
           password: DEMO_PASSWORD,
@@ -112,6 +112,22 @@ export async function seedDemoLogins(): Promise<void> {
           skipPasswordRequirement: false,
         });
         created++;
+      } else if (
+        (first && clerkUser.firstName !== first) ||
+        (last && clerkUser.lastName !== last)
+      ) {
+        try {
+          clerkUser = await clerkClient.users.updateUser(clerkUser.id, {
+            firstName: first || undefined,
+            lastName: last || undefined,
+          });
+        } catch (updateErr) {
+          const ue = updateErr as { errors?: Array<{ message?: string }>; message?: string };
+          logger.warn(
+            { email, message: ue.errors?.[0]?.message ?? ue.message },
+            "[demo-logins] Could not update user name",
+          );
+        }
       }
 
       // 2. Mark every email on this user as verified so the sign-in flow

@@ -60,8 +60,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isPatient = currentUser?.role === "patient";
   const isTherapist = currentUser?.role === "therapist";
 
-  const initials = user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?";
-  const name = user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "User";
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+  const name = fullName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "User";
+  const initialsSource = fullName || user?.emailAddresses?.[0]?.emailAddress || "?";
+  const initials = initialsSource
+    .replace(/^Dr\.?\s+/i, "")
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "?";
 
   const navItems = [
     { label: "Home", href: "/", icon: HomeIcon },
