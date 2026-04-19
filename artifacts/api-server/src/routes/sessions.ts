@@ -114,53 +114,86 @@ async function generateClinicalBrief(
 
   const profileInference = await inferClinicalProfile(transcript);
 
-  let subjective = "Patient completed intake interview.";
-  let assessment = "Clinical profile requires further assessment.";
-  let plan = "Schedule follow-up appointment with matched therapist.";
+  const trimmedTranscript = transcript.trim();
+  const hasTranscript = trimmedTranscript.length > 20;
 
-  if (openai) {
+  let subjective = hasTranscript
+    ? "Intake conversation completed; transcript captured but automated summary unavailable. Manual chart review recommended."
+    : "No conversational transcript was captured for this intake. The session may have ended before the patient engaged with the AI companion, or transcript ingestion from the video provider failed. Recommend repeating the intake or conducting a manual interview before clinical decisions.";
+  let assessment = hasTranscript
+    ? "Clinical impression pending — automated assessment could not be generated. Defer to clinician review of the raw transcript and biometric trace."
+    : "Insufficient data to form a clinical impression. No transcript available for analysis.";
+  let plan = hasTranscript
+    ? "Route to assigned therapist for full review of session transcript and biometric data prior to first appointment."
+    : "Re-attempt intake session, or schedule a live clinician-led interview. Verify Tavus conversation capture and OpenAI summarization pipeline are operating.";
+
+  if (openai && hasTranscript) {
+    const biometricSummary = averageHr
+      ? `Average HR ${averageHr.toFixed(0)} bpm (peak ${peakHr?.toFixed(0)} bpm), average HRV ${averageHrv?.toFixed(0) ?? "N/A"} ms, ${subtextEvents.length} sympathetic activation moment(s) correlated to transcript content.`
+      : "No biometric data was captured during this session.";
+
+    const profileHint = profileInference
+      ? `An automated profile classifier suggested: ${profileInference.label} (${profileInference.confidence} confidence). Treat this as a hint only — your own reading of the transcript should drive the note.`
+      : "No prior profile classification is available.";
+
+    const transcriptSlice = trimmedTranscript.slice(0, 16000);
+
     try {
-      const biometricSummary =
-        averageHr
-          ? `Average HR: ${averageHr.toFixed(0)} bpm. Peak HR: ${peakHr?.toFixed(0)} bpm. Average HRV: ${averageHrv?.toFixed(0) ?? "N/A"} ms. Elevated HR moments: ${subtextEvents.length}.`
-          : "No biometric data available.";
-
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `You are a clinical documentation specialist generating a SOAP note from an intake session.
+            content: `You are a senior licensed clinical psychologist documenting an initial intake interview for a mental-health practice. The interview was conducted by an AI conversational companion using a structured trauma-informed intake protocol. Your job is to read the verbatim transcript, optionally consider biometric context, and produce a thorough, professional SOAP note that a treating clinician can use as the foundation of a chart.
 
-Biometric summary: ${biometricSummary}
-${profileInference ? `Inferred clinical profile: ${profileInference.label} (${profileInference.confidence} confidence)` : ""}
+Write in the voice of an experienced clinician: precise, neutral, observational, free of filler. Use clinical terminology where appropriate (presenting problem, onset, duration, frequency, severity, functional impairment, risk factors, protective factors, mental status observations, working diagnosis with differential, treatment plan). Do not invent facts the transcript does not support — if information is absent, explicitly note it as "not assessed" or "not reported." Never hedge with phrases like "the patient seems to" when the transcript states it directly. Never include disclaimers about being an AI.
 
-Generate a concise SOAP note with:
-- Subjective: Patient's reported concerns in 2-3 sentences
-- Assessment: Clinical impression in 1-2 sentences  
-- Plan: Recommended next steps in 1-2 sentences
+Output a JSON object with exactly these keys:
 
-Return ONLY valid JSON: {"subjective": "...", "assessment": "...", "plan": "..."}`,
+- "subjective": A detailed narrative paragraph (4–8 sentences, 120–250 words) summarizing what the patient reported in their own words. Cover: chief complaint / reason for seeking care; symptom history (onset, duration, frequency, severity, triggers); functional impact (work, relationships, sleep, appetite); relevant psychosocial context the patient volunteered (family, support system, prior treatment, medications, substance use); and any stated goals for treatment. Quote brief patient phrases when especially clinically meaningful.
+
+- "assessment": A 3–5 sentence clinical impression (90–180 words). State the working formulation, the most likely DSM-5-TR or ICD-11 diagnostic considerations with a brief differential, severity, risk indicators (suicidal/homicidal ideation, self-harm, substance use) explicitly noted as present/denied/not assessed, and any protective factors. If the biometric context shows elevated arousal during specific topics, integrate that observation.
+
+- "plan": A 3–6 sentence concrete next-step plan (80–180 words). Include: recommended modality and frequency of therapy, any indicated assessments or referrals (psychiatric eval, PCP, labs, screeners like PHQ-9 / GAD-7 / PCL-5), safety planning if relevant, between-session interventions or psychoeducation, and the cadence for reviewing progress.
+
+CONTEXT FOR THIS SESSION
+${biometricSummary}
+${profileHint}
+
+Return ONLY a single valid JSON object. No prose, no markdown fences, no explanation.`,
           },
           {
             role: "user",
-            content: `Intake transcript:\n${transcript.slice(0, 4000)}`,
+            content: `Verbatim intake transcript follows. Speaker labels may be present.\n\n----- BEGIN TRANSCRIPT -----\n${transcriptSlice}\n----- END TRANSCRIPT -----`,
           },
         ],
-        temperature: 0.3,
-        max_tokens: 500,
+        temperature: 0.2,
+        max_tokens: 1800,
+        response_format: { type: "json_object" },
       });
 
       const content = completion.choices[0]?.message?.content?.trim();
       if (content) {
         const parsed = JSON.parse(content);
-        subjective = parsed.subjective ?? subjective;
-        assessment = parsed.assessment ?? assessment;
-        plan = parsed.plan ?? plan;
+        if (typeof parsed.subjective === "string" && parsed.subjective.trim().length > 0) {
+          subjective = parsed.subjective.trim();
+        }
+        if (typeof parsed.assessment === "string" && parsed.assessment.trim().length > 0) {
+          assessment = parsed.assessment.trim();
+        }
+        if (typeof parsed.plan === "string" && parsed.plan.trim().length > 0) {
+          plan = parsed.plan.trim();
+        }
+      } else {
+        console.warn(`[brief] OpenAI returned empty content for session ${sessionId}`);
       }
-    } catch {
-      // Fall through to defaults
+    } catch (err) {
+      console.error(`[brief] Failed to generate SOAP note for session ${sessionId}:`, err);
     }
+  } else if (!openai) {
+    console.warn(`[brief] OpenAI not configured — skipping SOAP generation for session ${sessionId}`);
+  } else if (!hasTranscript) {
+    console.warn(`[brief] Empty transcript for session ${sessionId} — skipping OpenAI call`);
   }
 
   return {
@@ -268,10 +301,23 @@ router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<
 
   let transcript = "";
   if (conversation?.externalId) {
-    transcript = await fetchTavusTranscript(conversation.externalId);
+    // Tavus often needs 10–30s after a conversation ends before the transcript
+    // is finalized. Poll a few times with backoff, but keep the total budget
+    // bounded so we don't exceed request timeouts at proxies/clients (~25s).
+    const delaysMs = [0, 3000, 6000, 10000];
+    for (const delay of delaysMs) {
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+      transcript = await fetchTavusTranscript(conversation.externalId);
+      if (transcript && transcript.trim().length > 20) break;
+    }
+    if (!transcript || transcript.trim().length <= 20) {
+      console.warn(
+        `[brief] Tavus transcript still insufficient after retries for session ${sessionId} (conversation ${conversation.externalId}) — will try local messages`
+      );
+    }
   }
-  // Fall back to local messages if Tavus returned nothing
-  if (!transcript) {
+  // Fall back to local messages if Tavus returned nothing usable
+  if (!transcript || transcript.trim().length <= 20) {
     transcript = await getConversationTranscript(sessionId);
   }
   const biometrics = await db
