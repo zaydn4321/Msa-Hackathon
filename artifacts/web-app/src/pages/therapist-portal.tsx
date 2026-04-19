@@ -574,14 +574,20 @@ export default function TherapistPortal() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            {entries.length === 0 ? (
-              <div className="col-span-2 p-12 text-center border border-border/50 rounded-2xl bg-white">
-                <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="font-medium text-foreground mb-2">No patients assigned yet</h3>
-                <p className="text-sm text-muted-foreground">Patients will appear here once they complete their intake and are matched with you.</p>
-              </div>
-            ) : (
-              entries.map((entry, i) => {
+            {(() => {
+              const visibleEntries = entries.filter(
+                (e) => e.patient && acceptedPatientIds.has(e.patient.id),
+              );
+              if (visibleEntries.length === 0) {
+                return (
+                  <div className="col-span-2 p-12 text-center border border-border/50 rounded-2xl bg-white">
+                    <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="font-medium text-foreground mb-2">No patients assigned yet</h3>
+                    <p className="text-sm text-muted-foreground">Patients will appear here once you accept a match request.</p>
+                  </div>
+                );
+              }
+              return visibleEntries.map((entry, i) => {
                 const dueForPatient = (stats?.dueRescreens ?? []).filter(
                   (d) => entry.patient && d.patientId === entry.patient.id,
                 );
@@ -687,8 +693,8 @@ export default function TherapistPortal() {
                   )}
                 </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
       </div>

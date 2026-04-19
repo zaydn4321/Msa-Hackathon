@@ -37,20 +37,12 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-5">
-            {isSignedIn ? (
-              <Link href={portalPath} className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity">
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link href="/sign-in" className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity hidden sm:block">
-                  Sign In
-                </Link>
-                <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-6 text-[15px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
-                  Get Started
-                </Link>
-              </>
-            )}
+            <Link href="/sign-in" className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity hidden sm:block">
+              Sign In
+            </Link>
+            <Link href={isSignedIn ? portalPath : "/sign-up"} className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-6 text-[15px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+              Get Started
+            </Link>
           </div>
         </div>
       </header>
