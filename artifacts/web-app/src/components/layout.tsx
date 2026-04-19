@@ -23,7 +23,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground font-sans">
-      <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur-sm border-b border-border/50">
+      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/60 supports-[backdrop-filter]:bg-background/70">
         <div className="container flex h-[72px] max-w-screen-xl items-center justify-between px-6 md:px-8 mx-auto">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
@@ -143,9 +143,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-[100dvh] flex bg-[#F8F9FA] text-foreground font-sans">
+    <div className="min-h-[100dvh] flex bg-background text-foreground font-sans">
       {/* Left Sidebar */}
-      <aside className="w-[260px] bg-white border-r border-border/50 flex flex-col hidden md:flex sticky top-0 h-[100dvh]">
+      <aside className="w-[260px] bg-sidebar border-r border-sidebar-border flex flex-col hidden md:flex sticky top-0 h-[100dvh]">
         <div className="p-6">
           <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
@@ -160,24 +160,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             return (
               <Link key={item.label} href={item.href} className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
-                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
               )}>
-                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                <item.icon className={cn("h-5 w-5 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                 {item.label}
+                {isActive && (
+                  <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-border/50 space-y-2">
+        <div className="p-4 mt-auto border-t border-sidebar-border space-y-2">
           {devSwitch.enabled && (devSwitch.canViewAsTherapist || devSwitch.canViewAsPatient) && (
             <button
               onClick={() =>
                 devSwitch.switchTo(devSwitch.canViewAsTherapist ? "therapist" : "patient")
               }
               disabled={devSwitch.busy}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-[#9B7250] bg-[#F5EFE6] hover:bg-[#EFE7DA] border border-[#E8E1D7] transition-colors disabled:opacity-60"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-primary bg-primary/10 hover:bg-primary/15 border border-primary/15 transition-colors disabled:opacity-60"
               title="Dev only — toggles between patient and therapist views"
             >
               {devSwitch.busy ? (
@@ -188,8 +193,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {devSwitch.canViewAsTherapist ? "View as therapist" : "View as patient"}
             </button>
           )}
-          <div className="flex items-center gap-3 px-2 py-2">
-            <Avatar className="h-9 w-9 bg-muted border border-border/50">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-accent/50 transition-colors">
+            <Avatar className="h-9 w-9 bg-muted border border-border">
               <AvatarImage src={user?.imageUrl} />
               <AvatarFallback className="bg-primary/10 text-primary font-serif text-sm">{initials}</AvatarFallback>
             </Avatar>
@@ -206,7 +211,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-[72px] bg-white border-b border-border/50 flex items-center justify-end px-8 sticky top-0 z-30">
+        <header className="h-[72px] bg-sidebar/80 backdrop-blur-md border-b border-border/60 flex items-center justify-end px-8 sticky top-0 z-30">
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-2 text-[14px] font-medium text-muted-foreground">
               <Calendar className="h-4 w-4" />
@@ -215,7 +220,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#F8F9FA] p-8">
+        <main className="flex-1 overflow-auto bg-background p-6 md:p-8 lg:p-10">
           {children}
         </main>
       </div>
