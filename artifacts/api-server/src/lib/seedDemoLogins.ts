@@ -41,6 +41,9 @@ export async function seedDemoLogins(): Promise<void> {
 
   for (const t of allTherapists) {
     if (t.clerkUserId) continue;
+    // Only provision logins for the demo roster — never touch real
+    // clinicians from other networks that may exist in mixed environments.
+    if (t.networkSource !== "anamnesis-demo") continue;
     const attrs = (t.profileAttributes ?? {}) as Record<string, unknown>;
     if (typeof attrs.seedEmail === "string" && attrs.seedEmail.length > 0) {
       // Real-account therapist (e.g. Dr. Zak) — leave alone.
@@ -114,19 +117,21 @@ export async function seedDemoLogins(): Promise<void> {
       const e = err as { errors?: Array<{ message?: string }>; message?: string };
       const message =
         e.errors?.[0]?.message ?? e.message ?? String(err);
-      logger.warn(
-        { email, kind: row.kind, name: displayName, message },
-        "[demo-logins] Clerk provisioning failed for one account",
-      );
 
       // If the very first attempt fails, the Clerk instance likely doesn't
-      // support email+password sign-in. Stop trying so we don't spam logs
-      // with 55 identical errors on every boot.
-      if (created === 0 && linked === 0 && failed >= 1) {
+      // support email+password sign-in. Emit one canonical warning and
+      // abort so we don't spam logs with 50+ identical errors on every boot.
+      if (created === 0 && linked === 0) {
         logger.warn(
-          "[demo-logins] Aborting demo-login provisioning — Clerk instance may not have email+password sign-in enabled. Demo directory page will be empty until this is enabled.",
+          { email, kind: row.kind, name: displayName, message },
+          "[demo-logins] Aborting demo-login provisioning — Clerk rejected the first attempt (email+password sign-in may be disabled). Demo directory page will be empty until this is resolved.",
         );
         aborted = true;
+      } else {
+        logger.warn(
+          { email, kind: row.kind, name: displayName, message },
+          "[demo-logins] Clerk provisioning failed for one account",
+        );
       }
     }
   }
