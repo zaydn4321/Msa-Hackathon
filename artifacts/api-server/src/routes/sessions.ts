@@ -277,22 +277,10 @@ router.post("/sessions", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(session);
 });
 
-router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<void> => {
-  const { sessionId } = EndSessionParams.parse(req.params);
-  const access = await verifySessionAccess(sessionId, req.clerkUserId!);
-
-  if (!access.ok) {
-    res.status(access.status).json({ error: access.error });
-    return;
-  }
-  if (access.role !== "patient") {
-    res.status(403).json({ error: "Only the patient may end their session" });
-    return;
-  }
-
-  stopSimulation(sessionId);
-
-  // Prefer Tavus transcript (real conversation) over local message store
+async function buildAndPersistBrief(
+  sessionId: number,
+  options: { endTavus: boolean; pollDelaysMs: number[] }
+): Promise<{ brief: CachedAssignment["brief"]; updated: typeof intakeSessionsTable.$inferSelect; assignedTherapistId: number | null; transcriptOk: boolean }> {
   const [conversation] = await db
     .select()
     .from(conversationsTable)
@@ -301,8 +289,7 @@ router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<
   let transcript = "";
   if (conversation?.externalId) {
     // Tavus only finalizes the transcript AFTER the conversation is ended.
-    // First tell Tavus to end the conversation, then poll for the transcript.
-    if (process.env.TAVUS_API_KEY) {
+    if (options.endTavus && process.env.TAVUS_API_KEY) {
       try {
         await fetch(`https://tavusapi.com/v2/conversations/${conversation.externalId}/end`, {
           method: "POST",
@@ -312,24 +299,17 @@ router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<
         console.warn(`[brief] Failed to end Tavus conversation ${conversation.externalId}:`, err);
       }
     }
-
-    // Poll with bounded budget so we don't exceed proxy/client timeouts.
-    const delaysMs = [1500, 3000, 5000, 8000];
-    for (const delay of delaysMs) {
-      await new Promise((r) => setTimeout(r, delay));
+    for (const delay of options.pollDelaysMs) {
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       transcript = await fetchTavusTranscript(conversation.externalId);
       if (transcript && transcript.trim().length > 20) break;
     }
-    if (!transcript || transcript.trim().length <= 20) {
-      console.warn(
-        `[brief] Tavus transcript still insufficient after end+retries for session ${sessionId} (conversation ${conversation.externalId}) — will try local messages`
-      );
-    }
   }
-  // Fall back to local messages if Tavus returned nothing usable
   if (!transcript || transcript.trim().length <= 20) {
     transcript = await getConversationTranscript(sessionId);
   }
+  const transcriptOk = transcript.trim().length > 20;
+
   const biometrics = await db
     .select()
     .from(biometricReadingsTable)
@@ -345,7 +325,7 @@ router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<
   const [updated] = await db
     .update(intakeSessionsTable)
     .set({
-      endedAt: new Date(),
+      endedAt: options.endTavus ? new Date() : undefined,
       clinicalBrief: brief,
       assignedTherapistId: assignedTherapist?.therapist.id ?? null,
     })
@@ -361,6 +341,44 @@ router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<
     },
     brief,
     assignedTherapistId: assignedTherapist?.therapist.id ?? null,
+  });
+
+  return { brief, updated, assignedTherapistId: assignedTherapist?.therapist.id ?? null, transcriptOk };
+}
+
+const FALLBACK_NO_TRANSCRIPT_MARKER = "No conversational transcript was captured";
+const FALLBACK_TRANSCRIPT_PRESENT_MARKER = "automated summary unavailable";
+
+function isFallbackBrief(brief: unknown): boolean {
+  if (!brief || typeof brief !== "object") return true;
+  const subjective = (brief as { subjective?: unknown }).subjective;
+  if (typeof subjective !== "string") return true;
+  return (
+    subjective.includes(FALLBACK_NO_TRANSCRIPT_MARKER) ||
+    subjective.includes(FALLBACK_TRANSCRIPT_PRESENT_MARKER)
+  );
+}
+
+router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<void> => {
+  const { sessionId } = EndSessionParams.parse(req.params);
+  const access = await verifySessionAccess(sessionId, req.clerkUserId!);
+
+  if (!access.ok) {
+    res.status(access.status).json({ error: access.error });
+    return;
+  }
+  if (access.role !== "patient") {
+    res.status(403).json({ error: "Only the patient may end their session" });
+    return;
+  }
+
+  stopSimulation(sessionId);
+
+  // Short bounded attempt — Tavus often needs longer than this to finalize the
+  // transcript, so the GET /brief endpoint will lazily retry below.
+  const { updated } = await buildAndPersistBrief(sessionId, {
+    endTavus: true,
+    pollDelaysMs: [1500, 3000, 5000],
   });
 
   res.json(EndSessionResponse.parse(updated));
@@ -421,6 +439,22 @@ router.get("/sessions/:sessionId/brief", requireAuth, async (req, res): Promise<
   if (!access.ok) {
     res.status(access.status).json({ error: access.error });
     return;
+  }
+
+  // If the persisted brief is a fallback (Tavus transcript wasn't ready when
+  // the session ended), opportunistically retry once now. Each subsequent
+  // refresh from the client will retry again until Tavus delivers.
+  if (access.session.endedAt && isFallbackBrief(access.session.clinicalBrief)) {
+    try {
+      const { updated } = await buildAndPersistBrief(sessionId, {
+        endTavus: false,
+        pollDelaysMs: [0, 2000, 4000],
+      });
+      res.json(GetSessionBriefResponse.parse(updated));
+      return;
+    } catch (err) {
+      console.error(`[brief] Lazy regeneration failed for session ${sessionId}:`, err);
+    }
   }
 
   res.json(GetSessionBriefResponse.parse(access.session));

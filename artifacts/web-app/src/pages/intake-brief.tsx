@@ -21,7 +21,20 @@ export default function IntakeBrief() {
   const [, setLocation] = useLocation();
 
   const { data: session, isLoading, error } = useGetSessionBrief(sessionId, {
-    query: { queryKey: getGetSessionBriefQueryKey(sessionId), enabled: !!sessionId },
+    query: {
+      queryKey: getGetSessionBriefQueryKey(sessionId),
+      enabled: !!sessionId,
+      // Keep polling until the AI-generated SOAP note replaces the fallback.
+      refetchInterval: (query) => {
+        const data = query.state.data as { clinicalBrief?: { subjective?: string } } | undefined;
+        const subj = data?.clinicalBrief?.subjective ?? "";
+        const isFallback =
+          !subj ||
+          subj.includes("No conversational transcript was captured") ||
+          subj.includes("automated summary unavailable");
+        return isFallback ? 8000 : false;
+      },
+    },
   });
 
   const matchTherapist = useMatchTherapist();
