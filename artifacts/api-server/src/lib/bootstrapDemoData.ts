@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import { ensureTherapistsProvisioned } from "./ensureTherapists";
 import { seedSpecialTherapists } from "./seedSpecialTherapists";
 import { seedDemoMatches } from "./seedDemoMatches";
+import { seedDemoLogins } from "./seedDemoLogins";
 
 const demoPatients = [
   {
@@ -52,6 +53,7 @@ export async function bootstrapDemoData() {
   }
 
   await seedDemoMatches();
+  await seedDemoLogins();
 
   logger.info(
     { therapistCount: therapists.length, demoPatientCount: demoPatients.length },

@@ -9,6 +9,7 @@ import therapistPortalRouter from "./therapistPortal";
 import therapistDashboardRouter from "./therapistDashboard";
 import devRoleSwitchRouter from "./devRoleSwitch";
 import matchesRouter from "./matches";
+import demoRouter from "./demo";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,7 @@ router.use(devRoleSwitchRouter);
 router.use(therapistPortalRouter);
 router.use(therapistDashboardRouter);
 router.use(matchesRouter);
+router.use(demoRouter);
 router.use(sessionsRouter);
 router.use(conversationRouter);
 router.use(tavusRouter);

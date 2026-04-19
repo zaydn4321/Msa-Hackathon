@@ -39,6 +39,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
               <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Patients</Link>
               <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Therapists</Link>
               <Link href="/therapists" className={cn("transition-colors hover:text-foreground", location.startsWith("/therapists") ? "text-foreground font-medium" : "text-muted-foreground")}>Directory</Link>
+              <Link href="/demo" className={cn("transition-colors hover:text-foreground", location === "/demo" ? "text-foreground font-medium" : "text-muted-foreground")}>Demo</Link>
             </nav>
           </div>
 

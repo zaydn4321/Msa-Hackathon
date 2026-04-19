@@ -13,6 +13,7 @@ import TherapistsList from "@/pages/therapists-list";
 import TherapistDetail from "@/pages/therapist-detail";
 import SessionsList from "@/pages/sessions-list";
 import OnboardingPage from "@/pages/onboarding";
+import DemoPage from "@/pages/demo";
 import PatientPortal from "@/pages/patient-portal";
 import TherapistPortal from "@/pages/therapist-portal";
 import Results from "@/pages/results";
@@ -231,6 +232,7 @@ function Router() {
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/portal" component={PortalRedirect} />
       <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/demo" component={DemoPage} />
       <Route path="/patient-portal">
         {() => <RequirePatient component={PatientPortal} layout={AppLayout} />}
       </Route>
