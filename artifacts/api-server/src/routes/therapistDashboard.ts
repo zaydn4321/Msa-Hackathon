@@ -8,6 +8,8 @@ import {
   patientTherapistMatchesTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { computeCadenceForPatients, RESCREEN_INTERVAL_DAYS } from "../lib/screenerCadence";
+import { instrumentLabel, type Instrument } from "../lib/screenerCatalog";
 
 const router: IRouter = Router();
 
@@ -141,6 +143,55 @@ router.get("/therapist/dashboard-stats", requireAuth, async (req, res): Promise<
     });
   }
 
+  // Cadence: patients overdue for re-screen → "Send re-screen"
+  const acceptedPatientIdList = [...acceptedPatientIds];
+  const cadenceMap = await computeCadenceForPatients(acceptedPatientIdList);
+  type DueRow = {
+    patientId: number;
+    patientName: string;
+    instrument: Instrument;
+    instrumentLabel: string;
+    daysSince: number | null;
+    lastApprovedAt: string | null;
+    hasOpenRequest: boolean;
+    sessionId: number | null;
+  };
+  const dueRescreens: DueRow[] = [];
+  // Find one (most recent) sessionId per accepted patient for href routing.
+  const latestSessionByPatient = new Map<number, number>();
+  for (const s of [...assignedSessions, ...matchSessions].sort(
+    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+  )) {
+    if (s.patientId !== null && !latestSessionByPatient.has(s.patientId)) {
+      latestSessionByPatient.set(s.patientId, s.id);
+    }
+  }
+  for (const pid of acceptedPatientIdList) {
+    const cad = cadenceMap.get(pid);
+    if (!cad) continue;
+    for (const entry of [cad.phq9, cad.gad7]) {
+      if (!entry.due) continue;
+      dueRescreens.push({
+        patientId: pid,
+        patientName: shortName(patientNameMap.get(pid)),
+        instrument: entry.instrument,
+        instrumentLabel: instrumentLabel(entry.instrument),
+        daysSince: entry.daysSince,
+        lastApprovedAt: entry.lastApprovedAt,
+        hasOpenRequest: entry.hasOpenRequest,
+        sessionId: latestSessionByPatient.get(pid) ?? null,
+      });
+      if (entry.hasOpenRequest) continue;
+      const sid = latestSessionByPatient.get(pid);
+      checklist.push({
+        id: `rescreen-${pid}-${entry.instrument}`,
+        label: `Send ${instrumentLabel(entry.instrument)} re-screen to ${shortName(patientNameMap.get(pid))}`,
+        due: "today",
+        href: sid ? `/therapist-portal/sessions/${sid}` : `/therapist-portal`,
+      });
+    }
+  }
+
   // Recent activity (last 5 matches across all statuses) — used for "Upcoming/Recent" panel.
   const recentMatches = [...matches]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -161,6 +212,8 @@ router.get("/therapist/dashboard-stats", requireAuth, async (req, res): Promise<
     sessionVolumeSeries: series,
     checklist,
     recentMatches,
+    dueRescreens,
+    rescreenIntervalDays: RESCREEN_INTERVAL_DAYS,
   });
 });
 

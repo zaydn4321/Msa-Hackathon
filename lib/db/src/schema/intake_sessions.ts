@@ -33,6 +33,16 @@ export const ClinicalBrief = z.object({
 });
 export type ClinicalBriefType = z.infer<typeof ClinicalBrief>;
 
+export const ScreenerEditHistoryEntry = z.object({
+  editedAt: z.string(),
+  editedBy: z.number().int(),
+  itemIndex: z.number().int().nullable(),
+  field: z.enum(["score", "rationale"]),
+  fromValue: z.union([z.string(), z.number()]).nullable(),
+  toValue: z.union([z.string(), z.number()]).nullable(),
+});
+export type ScreenerEditHistoryEntryType = z.infer<typeof ScreenerEditHistoryEntry>;
+
 export const ScreenerScore = z.object({
   score: z.number().int().min(0),
   maxScore: z.number().int().min(0),
@@ -49,6 +59,8 @@ export const ScreenerScore = z.object({
     .optional(),
   approvedAt: z.string().nullable().optional(),
   approvedBy: z.number().int().nullable().optional(),
+  approvalNote: z.string().nullable().optional(),
+  editHistory: z.array(ScreenerEditHistoryEntry).optional(),
 });
 export type ScreenerScoreType = z.infer<typeof ScreenerScore>;
 

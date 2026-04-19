@@ -7,6 +7,17 @@ import { Loader2, User, Search, Plus, Activity, FileText, CheckCircle2, ChevronR
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ScreenerRequestModal } from "@/components/screener-request-modal";
 import { ScreenerActivityPanel } from "@/components/screener-activity-panel";
@@ -67,8 +78,11 @@ function ScreenerCard({
   score: ScreenerScore;
   approved: boolean;
   loading: boolean;
-  onApprove: () => void;
+  onApprove: (note: string | undefined, approve: boolean) => void;
 }) {
+  const [showNote, setShowNote] = useState(false);
+  const [note, setNote] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   if (!score) {
     return (
       <div className="rounded-xl border border-[#E8E1D7] bg-[#FAFAF9] p-3">
@@ -77,6 +91,7 @@ function ScreenerCard({
       </div>
     );
   }
+  const existingNote = (score as ScreenerScore & { approvalNote?: string | null }).approvalNote;
   return (
     <div className={`rounded-xl border p-3 ${approved ? "border-emerald-200 bg-emerald-50/40" : "border-[#E8E1D7] bg-white"}`}>
       <div className="flex items-center justify-between mb-1">
@@ -87,25 +102,70 @@ function ScreenerCard({
         </p>
       </div>
       <p className="text-[11px] text-[#5C544F] mb-2">{score.severity}</p>
-      <Button
-        size="sm"
-        variant={approved ? "outline" : "default"}
-        disabled={loading}
-        onClick={onApprove}
-        className={`w-full h-7 text-[11px] rounded-md ${
-          approved
-            ? "border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50"
-            : "bg-[#2D2626] hover:bg-black text-white"
-        }`}
-      >
-        {loading ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : approved ? (
-          <><CheckCircle2 className="h-3 w-3 mr-1" /> Approved</>
-        ) : (
-          <><ClipboardCheck className="h-3 w-3 mr-1" /> Approve</>
-        )}
-      </Button>
+      {approved && existingNote && (
+        <p className="text-[11px] text-[#2D2626] italic mb-2">"{existingNote}"</p>
+      )}
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant={approved ? "outline" : "default"}
+          disabled={loading}
+          onClick={() => setConfirmOpen(true)}
+          className={`flex-1 h-7 text-[11px] rounded-md ${
+            approved
+              ? "border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50"
+              : "bg-[#2D2626] hover:bg-black text-white"
+          }`}
+        >
+          {loading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : approved ? (
+            <><CheckCircle2 className="h-3 w-3 mr-1" /> Approved</>
+          ) : (
+            <><ClipboardCheck className="h-3 w-3 mr-1" /> {showNote ? "Approve with note" : "Approve"}</>
+          )}
+        </Button>
+      </div>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {approved ? `Un-approve ${label}?` : `Approve ${label} score?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {approved
+                ? `This will clear your prior approval of this baseline ${label} score. You can re-approve at any time.`
+                : `Confirming will mark this ${label} baseline as clinically reviewed (${score.score}/${score.maxScore} · ${score.severity}) and stamp it with your name and the current time.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {!approved && (
+            <Textarea
+              value={note}
+              onChange={(e) => {
+                setNote(e.target.value);
+                if (!showNote) setShowNote(true);
+              }}
+              placeholder="Optional clinical note (e.g. 'Reviewed with patient on intake call')"
+              className="text-[12px] min-h-[60px] border-[#E8E1D7]"
+            />
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onApprove(note ? note : undefined, !approved);
+                setConfirmOpen(false);
+                if (approved) {
+                  setShowNote(false);
+                  setNote("");
+                }
+              }}
+            >
+              {approved ? "Un-approve" : "Confirm approval"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -115,6 +175,7 @@ export default function TherapistPortal() {
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const [entries, setEntries] = useState<SessionEntry[]>([]);
   const [therapistName, setTherapistName] = useState("");
+  const [therapistId, setTherapistId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [incomingMatches, setIncomingMatches] = useState<IncomingMatch[]>([]);
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
@@ -130,7 +191,19 @@ export default function TherapistPortal() {
     sessionVolumeSeries: { date: string; count: number }[];
     checklist: { id: string; label: string; due: "today" | "tomorrow" | "later"; href?: string }[];
     recentMatches: { id: number; patientName: string; status: string; createdAt: string; sessionId: number }[];
+    dueRescreens: {
+      patientId: number;
+      patientName: string;
+      instrument: "phq9" | "gad7";
+      instrumentLabel: string;
+      daysSince: number | null;
+      lastApprovedAt: string | null;
+      hasOpenRequest: boolean;
+      sessionId: number | null;
+    }[];
+    rescreenIntervalDays: number;
   } | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const refreshMatches = () => {
     fetch("/api/therapist/my-matches", { credentials: "include" })
@@ -166,6 +239,7 @@ export default function TherapistPortal() {
       .then((data) => {
         setEntries(data.patients ?? []);
         setTherapistName(data.therapist?.name ?? "");
+        setTherapistId(data.therapist?.id ?? null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -182,7 +256,13 @@ export default function TherapistPortal() {
 
   const updateMatch = async (
     matchId: number,
-    body: { phq9Approved?: boolean; gad7Approved?: boolean; status?: "accepted" | "declined" },
+    body: {
+      phq9Approved?: boolean;
+      gad7Approved?: boolean;
+      phq9Note?: string;
+      gad7Note?: string;
+      status?: "accepted" | "declined";
+    },
     key: string,
   ) => {
     setPendingApproval(key);
@@ -196,6 +276,32 @@ export default function TherapistPortal() {
       if (res.ok) refreshMatches();
     } finally {
       setPendingApproval(null);
+    }
+  };
+
+  const runBulkRescreen = async () => {
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/therapist/screener-requests/bulk-due", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast({
+          title: `Re-screen run: ${data.sent} sent`,
+          description:
+            data.skipped > 0
+              ? `${data.skipped} already had an open request — skipped.`
+              : `All eligible patients notified.`,
+        });
+        setActivityKey((k) => k + 1);
+        refreshMatches();
+      } else {
+        toast({ title: "Bulk re-screen failed", variant: "destructive" });
+      }
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -230,6 +336,22 @@ export default function TherapistPortal() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {stats && stats.dueRescreens && stats.dueRescreens.filter((d) => !d.hasOpenRequest).length > 0 && (
+              <Button
+                variant="outline"
+                onClick={runBulkRescreen}
+                disabled={bulkBusy}
+                className="rounded-xl h-10 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 font-medium"
+                title={`${stats.rescreenIntervalDays}-day cadence`}
+              >
+                {bulkBusy ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                )}
+                Re-screen all due ({stats.dueRescreens.filter((d) => !d.hasOpenRequest).length})
+              </Button>
+            )}
             <Button variant="outline" className="rounded-xl h-10 border-[#E8E1D7] text-[#2D2626] font-medium hidden sm:flex">
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -378,8 +500,12 @@ export default function TherapistPortal() {
                           score={phq9}
                           approved={phq9Approved}
                           loading={pendingApproval === `phq9-${m.id}`}
-                          onApprove={() =>
-                            updateMatch(m.id, { phq9Approved: !phq9Approved }, `phq9-${m.id}`)
+                          onApprove={(note, approve) =>
+                            updateMatch(
+                              m.id,
+                              { phq9Approved: approve, phq9Note: note },
+                              `phq9-${m.id}`,
+                            )
                           }
                         />
                         <ScreenerCard
@@ -387,8 +513,12 @@ export default function TherapistPortal() {
                           score={gad7}
                           approved={gad7Approved}
                           loading={pendingApproval === `gad7-${m.id}`}
-                          onApprove={() =>
-                            updateMatch(m.id, { gad7Approved: !gad7Approved }, `gad7-${m.id}`)
+                          onApprove={(note, approve) =>
+                            updateMatch(
+                              m.id,
+                              { gad7Approved: approve, gad7Note: note },
+                              `gad7-${m.id}`,
+                            )
                           }
                         />
                       </div>
@@ -449,7 +579,11 @@ export default function TherapistPortal() {
                 <p className="text-sm text-muted-foreground">Patients will appear here once they complete their intake and are matched with you.</p>
               </div>
             ) : (
-              entries.map((entry, i) => (
+              entries.map((entry, i) => {
+                const dueForPatient = (stats?.dueRescreens ?? []).filter(
+                  (d) => entry.patient && d.patientId === entry.patient.id,
+                );
+                return (
                 <div key={entry.session.id} className="bg-white rounded-2xl border border-border/50 shadow-sm p-5 hover:border-[#9B7250]/30 transition-colors group">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -462,15 +596,34 @@ export default function TherapistPortal() {
                         <p className="text-xs text-[#5C544F] font-mono">ID: {10000 + (entry.patient?.id ?? i)}</p>
                       </div>
                     </div>
-                    {entry.session.endedAt ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-100">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 border border-amber-100">
-                        Intake Pending
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {entry.session.endedAt ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-100">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 border border-amber-100">
+                          Intake Pending
+                        </span>
+                      )}
+                      {dueForPatient.map((d) => (
+                        <span
+                          key={d.instrument}
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border uppercase tracking-wide ${
+                            d.hasOpenRequest
+                              ? "bg-blue-50 text-blue-700 border-blue-100"
+                              : "bg-amber-100 text-amber-800 border-amber-200"
+                          }`}
+                          title={
+                            d.lastApprovedAt
+                              ? `Last approved ${new Date(d.lastApprovedAt).toLocaleDateString()}`
+                              : "Never approved"
+                          }
+                        >
+                          {d.instrumentLabel} {d.hasOpenRequest ? "Sent" : "Due"}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mb-4">
@@ -516,10 +669,20 @@ export default function TherapistPortal() {
                     </Button>
                   </div>
                   {entry.patient && (
-                    <ScreenerActivityPanel patientId={entry.patient.id} refreshKey={activityKey} />
+                    <ScreenerActivityPanel
+                      patientId={entry.patient.id}
+                      patientName={entry.patient.name}
+                      refreshKey={activityKey}
+                      currentTherapistId={therapistId}
+                      onChanged={() => {
+                        setActivityKey((k) => k + 1);
+                        refreshMatches();
+                      }}
+                    />
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -540,6 +703,56 @@ export default function TherapistPortal() {
                 {stats.checklist.slice(0, 6).map((item) => {
                   const dueLabel = item.due === "today" ? "Due Today" : item.due === "tomorrow" ? "Tomorrow" : "Later";
                   const dueColor = item.due === "today" ? "text-red-600" : "text-[#9B7250]";
+                  const rescreenMatch = item.id.match(/^rescreen-(\d+)-(phq9|gad7)$/);
+                  if (rescreenMatch) {
+                    const pid = Number(rescreenMatch[1]);
+                    const instrument = rescreenMatch[2] as "phq9" | "gad7";
+                    const sendKey = `checklist-send-${item.id}`;
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 hover:bg-black/5 transition-colors flex items-start gap-3"
+                      >
+                        <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">{item.label}</p>
+                          <span className={`text-[10px] font-bold uppercase ${dueColor}`}>{dueLabel}</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={pendingApproval === sendKey}
+                          onClick={async () => {
+                            setPendingApproval(sendKey);
+                            try {
+                              const res = await fetch(`/api/therapist/screener-requests`, {
+                                method: "POST",
+                                credentials: "include",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ patientId: pid, instruments: [instrument] }),
+                              });
+                              if (res.ok) {
+                                toast({ title: "Re-screen sent" });
+                                setActivityKey((k) => k + 1);
+                                refreshMatches();
+                              } else {
+                                toast({ title: "Could not send", variant: "destructive" });
+                              }
+                            } finally {
+                              setPendingApproval(null);
+                            }
+                          }}
+                          className="h-7 text-[10px] rounded-md border-[#E8E1D7] px-2 shrink-0"
+                        >
+                          {pendingApproval === sendKey ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Send"
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  }
                   const inner = (
                     <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
                       <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />

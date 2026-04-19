@@ -11,6 +11,8 @@ import {
   screenerResponsesTable,
   type ScreenerRequest,
   type ScreenerResponse,
+  type ScreenerScoreType,
+  type ScreenerEditHistoryEntryType,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import {
@@ -20,8 +22,10 @@ import {
   instrumentPrompts,
   RESPONSE_OPTIONS,
   scoreFromResponses,
+  severityFor,
   suggestCptCodes,
 } from "../lib/screenerCatalog";
+import { computeCadenceForPatient, RESCREEN_INTERVAL_DAYS } from "../lib/screenerCadence";
 
 const router: IRouter = Router();
 
@@ -215,6 +219,8 @@ router.get("/therapist/patients/:patientId/screener-activity", requireAuth, asyn
     .orderBy(desc(intakeSessionsTable.startedAt))
     .limit(1);
 
+  const cadence = await computeCadenceForPatient(patientId);
+
   res.json({
     requests: requests.map((r) => ({
       id: r.id,
@@ -234,8 +240,216 @@ router.get("/therapist/patients/:patientId/screener-activity", requireAuth, asyn
       phq9: baselineSession?.phq9 ?? null,
       gad7: baselineSession?.gad7 ?? null,
     },
+    cadence,
   });
 });
+
+// === THERAPIST: edit a baseline screener (per-item scores or rationale) ===
+router.patch(
+  "/therapist/sessions/:sessionId/screeners/:instrument",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const therapist = await getTherapistByClerk(req.clerkUserId!);
+    if (!therapist) {
+      res.status(403).json({ error: "Therapist account required" });
+      return;
+    }
+    const sessionId = Number(req.params.sessionId);
+    const instrument = String(req.params.instrument).toLowerCase() as Instrument;
+    if (!Number.isFinite(sessionId) || !VALID_INSTRUMENTS.includes(instrument)) {
+      res.status(400).json({ error: "Invalid session or instrument" });
+      return;
+    }
+    const [session] = await db
+      .select()
+      .from(intakeSessionsTable)
+      .where(eq(intakeSessionsTable.id, sessionId));
+    if (!session || session.patientId === null) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    const owns = await ensureTherapistOwnsPatient(therapist.id, session.patientId);
+    if (!owns) {
+      res.status(403).json({ error: "Not your patient" });
+      return;
+    }
+    const current = (instrument === "phq9" ? session.phq9 : session.gad7) as
+      | ScreenerScoreType
+      | null;
+    if (!current || !Array.isArray(current.items)) {
+      res.status(409).json({ error: "No baseline score to edit" });
+      return;
+    }
+
+    const body = (req.body ?? {}) as {
+      items?: { index: number; score: number }[];
+      rationale?: string;
+    };
+    const history: ScreenerEditHistoryEntryType[] = Array.isArray(current.editHistory)
+      ? [...current.editHistory]
+      : [];
+    const editedAt = new Date().toISOString();
+    const items = current.items.map((it) => ({ ...it }));
+
+    if (Array.isArray(body.items)) {
+      for (const edit of body.items) {
+        const idx = Number(edit.index);
+        const newScore = Number(edit.score);
+        if (
+          !Number.isInteger(idx) ||
+          idx < 0 ||
+          idx >= items.length ||
+          !Number.isFinite(newScore) ||
+          newScore < 0 ||
+          newScore > 3
+        ) {
+          res.status(400).json({ error: "Item out of range (index 0..n, score 0..3)" });
+          return;
+        }
+        const rounded = Math.round(newScore);
+        if (items[idx].score !== rounded) {
+          history.push({
+            editedAt,
+            editedBy: therapist.id,
+            itemIndex: idx,
+            field: "score",
+            fromValue: items[idx].score,
+            toValue: rounded,
+          });
+          items[idx] = { ...items[idx], score: rounded };
+        }
+      }
+    }
+
+    let rationale = current.rationale;
+    if (typeof body.rationale === "string") {
+      const next = body.rationale.trim().slice(0, 2000);
+      if (next !== current.rationale) {
+        history.push({
+          editedAt,
+          editedBy: therapist.id,
+          itemIndex: null,
+          field: "rationale",
+          fromValue: current.rationale,
+          toValue: next,
+        });
+        rationale = next;
+      }
+    }
+
+    const changed = history.length > (current.editHistory?.length ?? 0);
+    if (!changed) {
+      // Nothing actually changed — don't churn the approval.
+      res.json({ score: current });
+      return;
+    }
+    const total = items.reduce((s, it) => s + it.score, 0);
+    const updatedScore: ScreenerScoreType = {
+      ...current,
+      score: total,
+      severity: severityFor(instrument, total),
+      items,
+      rationale,
+      editHistory: history,
+      // Editing invalidates the prior approval — clinician must re-approve.
+      approvedAt: null,
+      approvedBy: null,
+      approvalNote: null,
+    };
+
+    await db
+      .update(intakeSessionsTable)
+      .set(instrument === "phq9" ? { phq9: updatedScore } : { gad7: updatedScore })
+      .where(eq(intakeSessionsTable.id, sessionId));
+
+    res.json({ score: updatedScore });
+  },
+);
+
+// === THERAPIST: cadence summary for one of their patients ===
+router.get(
+  "/therapist/patients/:patientId/screener-cadence",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const therapist = await getTherapistByClerk(req.clerkUserId!);
+    if (!therapist) {
+      res.status(403).json({ error: "Therapist account required" });
+      return;
+    }
+    const patientId = Number(req.params.patientId);
+    if (!Number.isFinite(patientId)) {
+      res.status(400).json({ error: "Invalid patient id" });
+      return;
+    }
+    const owns = await ensureTherapistOwnsPatient(therapist.id, patientId);
+    if (!owns) {
+      res.status(403).json({ error: "Not your patient" });
+      return;
+    }
+    const cadence = await computeCadenceForPatient(patientId);
+    res.json(cadence);
+  },
+);
+
+// === THERAPIST: bulk-create re-screen requests for every overdue (patient,instrument) ===
+router.post(
+  "/therapist/screener-requests/bulk-due",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const therapist = await getTherapistByClerk(req.clerkUserId!);
+    if (!therapist) {
+      res.status(403).json({ error: "Therapist account required" });
+      return;
+    }
+    await expireStaleRequests();
+    const matches = await db
+      .select()
+      .from(patientTherapistMatchesTable)
+      .where(
+        and(
+          eq(patientTherapistMatchesTable.therapistId, therapist.id),
+          eq(patientTherapistMatchesTable.status, "accepted"),
+        ),
+      );
+    const patientIds = [...new Set(matches.map((m) => m.patientId))];
+    const expiresAt = new Date(Date.now() + REQUEST_TTL_MS);
+    const created: { patientId: number; instrument: Instrument; id: number }[] = [];
+    let skipped = 0;
+
+    for (const patientId of patientIds) {
+      const cadence = await computeCadenceForPatient(patientId);
+      for (const entry of [cadence.phq9, cadence.gad7]) {
+        if (!entry.due) continue;
+        if (entry.hasOpenRequest) {
+          skipped += 1;
+          continue;
+        }
+        const cpt = suggestCptCodes([entry.instrument]);
+        const [row] = await db
+          .insert(screenerRequestsTable)
+          .values({
+            patientId,
+            therapistId: therapist.id,
+            instrument: entry.instrument,
+            note: null,
+            status: "pending",
+            magicToken: randomBytes(24).toString("hex"),
+            expiresAt,
+            cptSuggestions: cpt,
+          })
+          .returning();
+        created.push({ patientId, instrument: entry.instrument, id: row.id });
+      }
+    }
+
+    res.status(201).json({
+      sent: created.length,
+      skipped,
+      requests: created,
+      intervalDays: RESCREEN_INTERVAL_DAYS,
+    });
+  },
+);
 
 function buildResponsePayload(r: ScreenerResponse) {
   return {
@@ -246,6 +460,7 @@ function buildResponsePayload(r: ScreenerResponse) {
     submittedAt: r.submittedAt,
     approvedAt: r.approvedAt,
     approvedBy: r.approvedBy,
+    approvalNote: r.score?.approvalNote ?? null,
     confirmedCpt: r.confirmedCpt,
   };
 }
@@ -262,7 +477,7 @@ router.patch("/therapist/screener-responses/:responseId", requireAuth, async (re
     res.status(400).json({ error: "Invalid response id" });
     return;
   }
-  const body = (req.body ?? {}) as { approved?: boolean; confirmedCpt?: string[] };
+  const body = (req.body ?? {}) as { approved?: boolean; confirmedCpt?: string[]; note?: string };
   const [resp] = await db
     .select()
     .from(screenerResponsesTable)
@@ -272,6 +487,8 @@ router.patch("/therapist/screener-responses/:responseId", requireAuth, async (re
     return;
   }
   const update: Partial<ScreenerResponse> = {};
+  const trimmedNote =
+    typeof body.note === "string" ? body.note.trim().slice(0, 500) : undefined;
   if (typeof body.approved === "boolean") {
     update.approvedAt = body.approved ? new Date() : null;
     update.approvedBy = body.approved ? therapist.id : null;
@@ -280,7 +497,10 @@ router.patch("/therapist/screener-responses/:responseId", requireAuth, async (re
       ...resp.score,
       approvedAt: body.approved ? new Date().toISOString() : null,
       approvedBy: body.approved ? therapist.id : null,
+      approvalNote: body.approved ? (trimmedNote || null) : null,
     };
+  } else if (trimmedNote !== undefined) {
+    update.score = { ...resp.score, approvalNote: trimmedNote || null };
   }
   if (Array.isArray(body.confirmedCpt)) {
     update.confirmedCpt = body.confirmedCpt
