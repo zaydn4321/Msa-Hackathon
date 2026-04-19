@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Stethoscope, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Check } from "lucide-react";
 
 type Step = "choose" | "patient-name" | "therapist-code" | "therapist-request";
 
@@ -13,6 +14,8 @@ export default function OnboardingPage() {
   const queryClient = useQueryClient();
 
   const [step, setStep] = useState<Step>("choose");
+  const [role, setRole] = useState<"patient" | "therapist" | null>(null);
+  
   const [name, setName] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -78,191 +81,237 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center px-4 py-16">
-      <div className="w-full max-w-lg">
-
-        {step === "choose" && (
-          <>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5">Getting started</p>
-            <h1 className="font-serif text-4xl font-medium text-foreground leading-tight mb-3">
-              How are you using Anamnesis?
-            </h1>
-            <p className="text-sm text-muted-foreground mb-10">
-              Choose the path that matches your role. You can't change this later.
-            </p>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <button
-                onClick={() => setStep("patient-name")}
-                className="text-left border border-border/60 rounded-xl p-6 hover:border-primary/40 hover:bg-muted/30 transition-all group"
-              >
-                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-5">
-                  <User className="h-5 w-5" />
-                </div>
-                <h3 className="font-medium text-foreground mb-1">I'm a patient</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Complete an intake session and get matched to a therapist.
+    <div className="min-h-[100dvh] flex flex-col bg-[#F5EFE6]">
+      <div className="w-full p-8 flex justify-center">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+            <span className="font-serif italic text-lg text-primary-foreground leading-none -mt-0.5">A</span>
+          </div>
+          <span className="font-serif text-2xl font-medium tracking-tight text-foreground">Anamnesis</span>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex items-center justify-center p-6 pb-24">
+        <div className="w-full max-w-[480px] bg-white rounded-2xl shadow-sm border border-[#E8E1D7] overflow-hidden">
+          
+          {step === "choose" && (
+            <div className="p-8 md:p-10">
+              <div className="text-center mb-8">
+                <h1 className="font-serif text-3xl md:text-[2rem] font-medium text-[#2D2626] mb-3">
+                  Choose your path
+                </h1>
+                <p className="text-[#5C544F] text-[15px]">
+                  Select how you will be using Anamnesis today.
                 </p>
-              </button>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <button
+                  onClick={() => setRole("patient")}
+                  className={`w-full text-left relative rounded-xl border p-5 transition-all ${
+                    role === "patient" 
+                      ? "border-[#9B7250] bg-[#F5EFE6]/50 shadow-[0_0_0_1px_#9B7250]" 
+                      : "border-[#E8E1D7] hover:border-[#D5CFC6] bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 ${
+                      role === "patient" ? "bg-[#9B7250] text-white" : "bg-[#F5EFE6] text-[#5C544F]"
+                    }`}>
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-[#2D2626] text-[15px] mb-0.5">Patient</h3>
+                      <p className="text-sm text-[#5C544F]">Complete an intake and find a provider</p>
+                    </div>
+                  </div>
+                  {role === "patient" && (
+                    <div className="absolute top-1/2 -translate-y-1/2 right-5 h-6 w-6 rounded-full bg-[#9B7250] text-white flex items-center justify-center">
+                      <Check className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setRole("therapist")}
+                  className={`w-full text-left relative rounded-xl border p-5 transition-all ${
+                    role === "therapist" 
+                      ? "border-[#9B7250] bg-[#F5EFE6]/50 shadow-[0_0_0_1px_#9B7250]" 
+                      : "border-[#E8E1D7] hover:border-[#D5CFC6] bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 ${
+                      role === "therapist" ? "bg-[#9B7250] text-white" : "bg-[#F5EFE6] text-[#5C544F]"
+                    }`}>
+                      <Stethoscope className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-[#2D2626] text-[15px] mb-0.5">Therapist</h3>
+                      <p className="text-sm text-[#5C544F]">Manage patients and view clinical briefs</p>
+                    </div>
+                  </div>
+                  {role === "therapist" && (
+                    <div className="absolute top-1/2 -translate-y-1/2 right-5 h-6 w-6 rounded-full bg-[#9B7250] text-white flex items-center justify-center">
+                      <Check className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-12 rounded-xl text-[15px] border-[#E8E1D7] font-medium"
+                  onClick={() => {
+                    const clerkOutBtn = document.querySelector('.cl-userButtonTrigger');
+                    if (clerkOutBtn) (clerkOutBtn as any).click();
+                  }}
+                >
+                  Back to login
+                </Button>
+                <Button 
+                  className="flex-1 h-12 rounded-xl text-[15px] bg-[#9B7250] hover:bg-[#8B6B5D] font-medium"
+                  disabled={!role}
+                  onClick={() => {
+                    if (role === "patient") setStep("patient-name");
+                    if (role === "therapist") setStep("therapist-code");
+                  }}
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === "patient-name" && (
+            <div className="p-8 md:p-10">
               <button
-                onClick={() => setStep("therapist-code")}
-                className="text-left border border-border/60 rounded-xl p-6 hover:border-primary/40 hover:bg-muted/30 transition-all group"
+                onClick={() => { setStep("choose"); setError(null); }}
+                className="text-sm text-[#5C544F] hover:text-[#2D2626] mb-8 transition-colors flex items-center gap-1.5 font-medium"
               >
-                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-5">
-                  <Stethoscope className="h-5 w-5" />
-                </div>
-                <h3 className="font-medium text-foreground mb-1">I'm a therapist</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Access your client dashboard using your clinic access code.
-                </p>
+                ← Back
               </button>
+              <h1 className="font-serif text-3xl font-medium text-[#2D2626] mb-3">
+                What's your name?
+              </h1>
+              <p className="text-[#5C544F] text-[15px] mb-8">
+                This is how your therapist will know you.
+              </p>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-[#2D2626] mb-2">Full name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && submitPatient()}
+                    placeholder="e.g. Jane Doe"
+                    className="h-12 w-full rounded-xl border border-[#E8E1D7] bg-white px-4 text-[15px] text-[#2D2626] placeholder:text-[#A09890] focus:outline-none focus:border-[#9B7250] focus:ring-1 focus:ring-[#9B7250]"
+                  />
+                  {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+                </div>
+                
+                <Button
+                  onClick={submitPatient}
+                  disabled={isSubmitting || !name.trim()}
+                  className="w-full rounded-xl h-12 text-[15px] font-medium bg-[#9B7250] hover:bg-[#8B6B5D]"
+                >
+                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                  Complete Setup
+                </Button>
+              </div>
             </div>
-          </>
-        )}
+          )}
 
-        {step === "patient-name" && (
-          <>
-            <button
-              onClick={() => { setStep("choose"); setError(null); }}
-              className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground mb-8 transition-colors"
-            >
-              ← Back
-            </button>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5">Patient profile</p>
-            <h1 className="font-serif text-4xl font-medium text-foreground leading-tight mb-3">
-              What's your name?
-            </h1>
-            <p className="text-sm text-muted-foreground mb-8">
-              This is how your therapist will know you. Use your legal or preferred name.
-            </p>
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submitPatient()}
-                placeholder="Full name"
-                className="h-11 w-full rounded-md border border-border/60 bg-card px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button
-                onClick={submitPatient}
-                disabled={isSubmitting}
-                className="rounded-md h-11 text-sm font-medium mt-1"
+          {step === "therapist-code" && (
+            <div className="p-8 md:p-10">
+              <button
+                onClick={() => { setStep("choose"); setError(null); }}
+                className="text-sm text-[#5C544F] hover:text-[#2D2626] mb-8 transition-colors flex items-center gap-1.5 font-medium"
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Continue
-              </Button>
-            </div>
-          </>
-        )}
-
-        {step === "therapist-code" && (
-          <>
-            <button
-              onClick={() => { setStep("choose"); setError(null); }}
-              className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground mb-8 transition-colors"
-            >
-              ← Back
-            </button>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5">Therapist access</p>
-            <h1 className="font-serif text-4xl font-medium text-foreground leading-tight mb-3">
-              Enter your access code
-            </h1>
-            <p className="text-sm text-muted-foreground mb-8">
-              Your access code was provided by your clinic or the Anamnesis team when your profile was created. It looks like <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">HART-2048</code>.
-            </p>
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && submitTherapist()}
-                placeholder="e.g. HART-2048"
-                className="h-11 w-full rounded-md border border-border/60 bg-card px-4 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              {error && (
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm text-destructive">{error}</p>
+                ← Back
+              </button>
+              <h1 className="font-serif text-3xl font-medium text-[#2D2626] mb-3">
+                Enter access code
+              </h1>
+              <p className="text-[#5C544F] text-[15px] mb-8">
+                Your access code was provided by your clinic or the Anamnesis team.
+              </p>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-[#2D2626] mb-2">Access Code</label>
+                  <input
+                    type="text"
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && submitTherapist()}
+                    placeholder="e.g. CLINIC-2024"
+                    className="h-12 w-full rounded-xl border border-[#E8E1D7] bg-white px-4 text-[15px] font-mono text-[#2D2626] placeholder:text-[#A09890] focus:outline-none focus:border-[#9B7250] focus:ring-1 focus:ring-[#9B7250]"
+                  />
+                  {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+                </div>
+                
+                <Button
+                  onClick={submitTherapist}
+                  disabled={isSubmitting || !accessCode.trim()}
+                  className="w-full rounded-xl h-12 text-[15px] font-medium bg-[#9B7250] hover:bg-[#8B6B5D]"
+                >
+                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                  Verify Access
+                </Button>
+                
+                <div className="text-center pt-2">
                   <button
-                    type="button"
                     onClick={() => { setStep("therapist-request"); setError(null); }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors text-left"
+                    className="text-sm text-[#5C544F] hover:text-[#2D2626] underline underline-offset-4"
                   >
-                    Don't have a code? Request provider access →
+                    Don't have a code?
                   </button>
                 </div>
-              )}
-              <Button
-                onClick={submitTherapist}
-                disabled={isSubmitting}
-                className="rounded-md h-11 text-sm font-medium mt-1"
-              >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Access my dashboard
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                No code yet?{" "}
-                <button
-                  type="button"
-                  onClick={() => { setStep("therapist-request"); setError(null); }}
-                  className="underline underline-offset-4 hover:text-foreground transition-colors"
-                >
-                  Request provider access
-                </button>
-              </p>
+              </div>
             </div>
-          </>
-        )}
+          )}
 
-        {step === "therapist-request" && (
-          <>
-            <button
-              onClick={() => { setStep("therapist-code"); setError(null); }}
-              className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground mb-8 transition-colors"
-            >
-              ← Back
-            </button>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5">Provider access request</p>
-            <h1 className="font-serif text-4xl font-medium text-foreground leading-tight mb-3">
-              Request access to Anamnesis
-            </h1>
-            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-              Provider accounts are provisioned directly by the Anamnesis clinical team. Your clinic administrator can request an account on your behalf — or reach out to us directly.
-            </p>
-            <div className="border border-border/60 rounded-xl p-6 flex flex-col gap-5 bg-card">
-              <div>
-                <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">Option 1 — Contact your clinic</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Ask your clinic administrator to submit a provider onboarding request. They'll receive your access code within one business day.
-                </p>
-              </div>
-              <div className="border-t border-border/50" />
-              <div>
-                <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">Option 2 — Email us directly</p>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                  Send a request with your name, NPI number, and clinic affiliation to:
-                </p>
-                <a
-                  href="mailto:providers@anamnesis.com?subject=Provider%20Access%20Request"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-foreground hover:underline underline-offset-4"
-                >
-                  providers@anamnesis.com
-                </a>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-6">
-              Already have a code?{" "}
+          {step === "therapist-request" && (
+            <div className="p-8 md:p-10">
               <button
-                type="button"
                 onClick={() => { setStep("therapist-code"); setError(null); }}
-                className="underline underline-offset-4 hover:text-foreground transition-colors"
+                className="text-sm text-[#5C544F] hover:text-[#2D2626] mb-8 transition-colors flex items-center gap-1.5 font-medium"
               >
-                Enter it here
+                ← Back
               </button>
+              <h1 className="font-serif text-3xl font-medium text-[#2D2626] mb-3">
+                Request provider access
+              </h1>
+              <p className="text-[#5C544F] text-[15px] mb-8 leading-relaxed">
+                Provider accounts are provisioned directly by the Anamnesis clinical team. To request an account:
+              </p>
+              
+              <div className="bg-[#F8F9FA] rounded-xl border border-[#E8E1D7] p-6 mb-8">
+                <p className="text-[#2D2626] text-sm leading-relaxed">
+                  Send an email to <a href="mailto:providers@anamnesis.com" className="font-medium text-[#9B7250] hover:underline">providers@anamnesis.com</a> with your NPI number and clinic affiliation.
+                </p>
+              </div>
+              
+              <Button
+                onClick={() => { setStep("therapist-code"); setError(null); }}
+                variant="outline"
+                className="w-full rounded-xl h-12 text-[15px] border-[#E8E1D7] font-medium"
+              >
+                I have my code
+              </Button>
+            </div>
+          )}
+          
+          <div className="border-t border-[#E8E1D7] bg-[#F8F9FA] p-5 text-center">
+            <p className="text-xs text-[#5C544F]">
+              Need help deciding? <a href="#" className="underline underline-offset-2">Contact Support</a>
             </p>
-          </>
-        )}
-
+          </div>
+        </div>
       </div>
     </div>
   );

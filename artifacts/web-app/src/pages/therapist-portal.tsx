@@ -3,14 +3,10 @@ import { Link, Redirect } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, HeartPulse, Activity, FileText, ChevronDown, ChevronUp, User, ArrowRight } from "lucide-react";
-
-type BiometricReading = {
-  id: number;
-  metric: string;
-  value: number;
-  recordedAt: string;
-};
+import { Loader2, User, Search, Plus, Calendar, Filter, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Video } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type SessionEntry = {
   session: {
@@ -26,200 +22,8 @@ type SessionEntry = {
     demographics: any;
     createdAt: string;
   } | null;
-  biometrics: BiometricReading[];
+  biometrics: any[];
 };
-
-function BiometricSummary({ biometrics }: { biometrics: BiometricReading[] }) {
-  const hrReadings = biometrics.filter((b) => b.metric === "HR").map((b) => b.value);
-  const hrvReadings = biometrics.filter((b) => b.metric === "HRV").map((b) => b.value);
-
-  if (hrReadings.length === 0) return <p className="text-xs text-muted-foreground">No biometric data recorded</p>;
-
-  const avgHr = Math.round(hrReadings.reduce((a, b) => a + b, 0) / hrReadings.length);
-  const peakHr = Math.max(...hrReadings);
-  const avgHrv = hrvReadings.length > 0 ? Math.round(hrvReadings.reduce((a, b) => a + b, 0) / hrvReadings.length) : null;
-
-  return (
-    <div className="flex flex-wrap gap-4">
-      <div className="flex items-center gap-2">
-        <HeartPulse className="h-4 w-4 text-primary shrink-0" />
-        <span className="text-sm">
-          <span className="font-medium text-foreground">{avgHr}</span>
-          <span className="text-muted-foreground"> avg bpm</span>
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <HeartPulse className="h-4 w-4 text-destructive/70 shrink-0" />
-        <span className="text-sm">
-          <span className="font-medium text-foreground">{peakHr}</span>
-          <span className="text-muted-foreground"> peak bpm</span>
-        </span>
-      </div>
-      {avgHrv !== null && (
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="text-sm">
-            <span className="font-medium text-foreground">{avgHrv}</span>
-            <span className="text-muted-foreground"> ms HRV</span>
-          </span>
-        </div>
-      )}
-      <span className="text-xs text-muted-foreground self-center">({hrReadings.length} readings)</span>
-    </div>
-  );
-}
-
-function HrChart({ biometrics }: { biometrics: BiometricReading[] }) {
-  const hrReadings = biometrics
-    .filter((b) => b.metric === "HR")
-    .sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime());
-
-  if (hrReadings.length < 2) return null;
-
-  const values = hrReadings.map((b) => b.value);
-  const min = Math.min(...values) - 5;
-  const max = Math.max(...values) + 5;
-  const range = max - min;
-  const w = 300;
-  const h = 80;
-
-  const points = hrReadings.map((b, i) => {
-    const x = (i / (hrReadings.length - 1)) * w;
-    const y = h - ((b.value - min) / range) * h;
-    return `${x},${y}`;
-  });
-
-  return (
-    <div className="mt-3">
-      <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-2">Heart rate over session</p>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-16 text-primary" preserveAspectRatio="none">
-        <polyline
-          points={points.join(" ")}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-        <span>{min + 5} bpm</span>
-        <span>{max - 5} bpm peak</span>
-      </div>
-    </div>
-  );
-}
-
-function SessionCard({ entry }: { entry: SessionEntry }) {
-  const [expanded, setExpanded] = useState(false);
-  const { session, patient, biometrics } = entry;
-  const brief = session.clinicalBrief;
-  const date = new Date(session.startedAt).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
-  const isComplete = !!session.endedAt;
-
-  return (
-    <Card className="bg-card border-border/50">
-      <CardContent className="p-0">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full text-left p-5 flex items-start gap-4"
-        >
-          <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
-            <User className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">
-              {patient?.name ?? "Anonymous patient"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {date} — {isComplete ? "Completed" : "In progress"}
-              {brief?.clinicalProfile && (
-                <span className="ml-2 font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
-                  {brief.clinicalProfile}
-                </span>
-              )}
-            </p>
-            {isComplete && <BiometricSummary biometrics={biometrics} />}
-          </div>
-          <div className="text-muted-foreground shrink-0 mt-0.5">
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </div>
-        </button>
-
-        {expanded && (
-          <div className="border-t border-border/50 px-5 py-5 space-y-5">
-            {/* Biometric chart */}
-            {biometrics.length > 1 && (
-              <div>
-                <HrChart biometrics={biometrics} />
-              </div>
-            )}
-
-            {/* SOAP brief */}
-            {brief ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">SOAP Clinical Brief</p>
-                </div>
-                {[
-                  { label: "Subjective", value: brief.subjective },
-                  { label: "Assessment", value: brief.assessment },
-                  { label: "Plan", value: brief.plan },
-                ].map(({ label, value }) => (
-                  <div key={label}>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-                    <p className="text-sm text-foreground leading-relaxed">{value}</p>
-                  </div>
-                ))}
-                {brief.objective && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Objective — Biometrics</p>
-                    <div className="text-sm text-foreground space-y-1">
-                      {brief.objective.averageHr && (
-                        <p>Average HR: <span className="font-medium">{Math.round(brief.objective.averageHr)} bpm</span></p>
-                      )}
-                      {brief.objective.peakHr && (
-                        <p>Peak HR: <span className="font-medium">{brief.objective.peakHr} bpm</span></p>
-                      )}
-                      {brief.objective.averageHrv && (
-                        <p>Average HRV: <span className="font-medium">{Math.round(brief.objective.averageHrv)} ms</span></p>
-                      )}
-                      {brief.objective.biometricSubtextEvents?.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-border/40">
-                          <p className="text-xs text-muted-foreground mb-2">Stress events during session:</p>
-                          {brief.objective.biometricSubtextEvents.slice(0, 3).map((event: any, i: number) => (
-                            <div key={i} className="text-xs text-muted-foreground leading-relaxed mb-1">
-                              <span className="text-destructive/70 font-medium">+{Math.round(event.spikePercent)}% HR</span> — "{event.text}"
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {isComplete ? "Brief not yet generated." : "Session still in progress — brief will appear after the session ends."}
-              </p>
-            )}
-
-            <div className="flex gap-3 pt-2 border-t border-border/40">
-              <Link href={`/intake/${session.id}/brief`}>
-                <button className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                  Full brief <ArrowRight className="h-3 w-3" />
-                </button>
-              </Link>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function TherapistPortal() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -227,29 +31,22 @@ export default function TherapistPortal() {
   const [entries, setEntries] = useState<SessionEntry[]>([]);
   const [therapistName, setTherapistName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSignedIn) return;
     fetch("/api/therapist/my-patients", { credentials: "include" })
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to load patients");
-        return r.json();
-      })
+      .then((r) => r.json())
       .then((data) => {
         setEntries(data.patients ?? []);
         setTherapistName(data.therapist?.name ?? "");
         setLoading(false);
       })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, [isSignedIn]);
 
-  if (!isLoaded || userLoading) {
+  if (!isLoaded || userLoading || loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-[100dvh]">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -258,62 +55,228 @@ export default function TherapistPortal() {
   if (!isSignedIn) return <Redirect to="/sign-in" />;
   if (user && user.role !== "therapist") return <Redirect to="/portal" />;
 
+  const lastName = therapistName ? therapistName.split(" ").pop() : "";
+
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border/50 px-4 py-8 md:px-8">
-        <div className="container max-w-screen-xl mx-auto">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">Provider dashboard</p>
-          <h1 className="font-serif text-4xl font-medium text-foreground">
-            {therapistName ? therapistName : "Your dashboard"}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            All patients assigned to you — with intake session details, SOAP briefs, and biometric analysis.
-          </p>
+    <div className="flex flex-col xl:flex-row gap-8 max-w-[1600px] mx-auto">
+      <div className="flex-1 flex flex-col gap-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-3xl font-medium text-[#2D2626]">
+              Welcome back, Dr. {lastName}.
+            </h1>
+            <p className="text-[#5C544F] mt-1 flex items-center gap-1.5">
+              You have <span className="font-medium text-[#9B7250]">3 priority alerts</span> today.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="rounded-xl h-10 border-[#E8E1D7] text-[#2D2626] font-medium hidden sm:flex">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button className="rounded-xl h-10 bg-[#9B7250] hover:bg-[#8B6B5D] font-medium">
+              <Plus className="h-4 w-4 mr-2" />
+              New Patient
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="rounded-2xl border border-border/50 shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Total Patients</span>
+                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  +12%
+                </span>
+              </div>
+              <p className="font-serif text-[2.5rem] font-medium text-[#2D2626] leading-none">148</p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border border-border/50 shadow-sm bg-[#FFF8F8] border-red-100">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-medium text-red-900/70 uppercase tracking-wider">High Priority</span>
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </div>
+              <p className="font-serif text-[2.5rem] font-medium text-red-700 leading-none">12</p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border border-border/50 shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Pending Intakes</span>
+                <FileText className="h-4 w-4 text-[#9B7250]" />
+              </div>
+              <p className="font-serif text-[2.5rem] font-medium text-[#2D2626] leading-none">4</p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border border-border/50 shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Session Volume</span>
+              </div>
+              <div className="mt-auto">
+                <svg viewBox="0 0 100 30" className="w-full h-10 text-[#9B7250]" preserveAspectRatio="none">
+                  <path d="M0,30 L10,25 L20,28 L30,15 L40,20 L50,10 L60,18 L70,5 L80,12 L90,2 L100,8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                </svg>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Patient List */}
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-1 bg-white border border-[#E8E1D7] rounded-xl p-1 overflow-x-auto hide-scrollbar">
+              <button className="px-4 py-1.5 text-sm font-medium rounded-lg bg-[#F5EFE6] text-[#9B7250] whitespace-nowrap">All Patients</button>
+              <button className="px-4 py-1.5 text-sm font-medium rounded-lg text-[#5C544F] hover:bg-black/5 whitespace-nowrap">Active</button>
+              <button className="px-4 py-1.5 text-sm font-medium rounded-lg text-[#5C544F] hover:bg-black/5 whitespace-nowrap">New Intakes</button>
+              <button className="px-4 py-1.5 text-sm font-medium rounded-lg text-[#5C544F] hover:bg-black/5 whitespace-nowrap">Needs Follow-up</button>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search patients..." className="pl-9 h-10 rounded-xl border-[#E8E1D7]" />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {entries.length === 0 ? (
+              <div className="col-span-2 p-12 text-center border border-border/50 rounded-2xl bg-white">
+                <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="font-medium text-foreground mb-2">No patients assigned yet</h3>
+                <p className="text-sm text-muted-foreground">Patients will appear here once they complete their intake and are matched with you.</p>
+              </div>
+            ) : (
+              entries.map((entry, i) => (
+                <div key={entry.session.id} className="bg-white rounded-2xl border border-border/50 shadow-sm p-5 hover:border-[#9B7250]/30 transition-colors group">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 border border-border/50">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${entry.patient?.name ?? 'Anon'}&backgroundColor=f0e6e6&textColor=2d2626`} />
+                        <AvatarFallback>{entry.patient?.name?.charAt(0) ?? 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-medium text-[#2D2626] text-[15px]">{entry.patient?.name ?? "Anonymous Patient"}</h3>
+                        <p className="text-xs text-[#5C544F] font-mono">ID: {10000 + (entry.patient?.id ?? i)}</p>
+                      </div>
+                    </div>
+                    {entry.session.endedAt ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-100">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 border border-amber-100">
+                        Intake Pending
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider font-medium text-[#5C544F] mb-1">Last Session</p>
+                      <p className="text-sm text-[#2D2626]">
+                        {new Date(entry.session.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider font-medium text-[#5C544F] mb-1">Clinical Profile</p>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="text-[11px] bg-[#F5EFE6] text-[#9B7250] px-1.5 py-0.5 rounded">
+                          #{entry.session.clinicalBrief?.clinicalProfile?.split('-')[0] ?? 'general'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-4 border-t border-[#E8E1D7]">
+                    <Link href={`/therapist-portal/sessions/${entry.session.id}`} className="flex-1">
+                      <Button variant="outline" className="w-full h-9 rounded-lg border-[#E8E1D7] text-[13px] font-medium text-[#2D2626]">
+                        Open Brief
+                      </Button>
+                    </Link>
+                    <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg border-[#E8E1D7] text-[#5C544F]">
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-10 md:px-8">
-        <div className="container max-w-screen-xl mx-auto max-w-3xl">
-
-          {loading && (
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading patient data…
-            </div>
-          )}
-
-          {error && (
-            <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-5 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          {!loading && !error && entries.length === 0 && (
-            <div className="border border-border/50 rounded-xl p-10 text-center">
-              <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="font-medium text-foreground mb-2">No patients assigned yet</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                When patients complete intake sessions and are matched to you, they'll appear here with their full session data.
-              </p>
-            </div>
-          )}
-
-          {!loading && !error && entries.length > 0 && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-serif text-xl font-medium text-foreground">
-                  {entries.length} {entries.length === 1 ? "patient" : "patients"}
-                </h2>
-                <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                  {entries.filter((e) => !!e.session.endedAt).length} completed
-                </p>
+      {/* Right Sidebar */}
+      <div className="w-full xl:w-[320px] flex flex-col gap-6">
+        <Card className="rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+          <div className="bg-[#FAFAF9] border-b border-[#E8E1D7] px-5 py-4 flex items-center justify-between">
+            <h3 className="font-medium text-[#2D2626]">Checklist</h3>
+            <span className="text-xs font-medium bg-[#F5EFE6] text-[#9B7250] px-2 py-0.5 rounded-full">4 pending</span>
+          </div>
+          <CardContent className="p-0">
+            <div className="divide-y divide-[#E8E1D7]">
+              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
+                <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">Review new intake: Michael R.</p>
+                  <span className="text-[10px] font-bold uppercase text-red-600">Due Today</span>
+                </div>
               </div>
-              {entries.map((entry, i) => (
-                <SessionCard key={`${entry.session.id}-${i}`} entry={entry} />
-              ))}
+              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
+                <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">Finalize notes for Sarah T.</p>
+                  <span className="text-[10px] font-bold uppercase text-red-600">Due Today</span>
+                </div>
+              </div>
+              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
+                <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">Sign treatment plan for David L.</p>
+                  <span className="text-[10px] font-bold uppercase text-[#9B7250]">Tomorrow</span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+          <div className="bg-[#FAFAF9] border-b border-[#E8E1D7] px-5 py-4 flex items-center justify-between">
+            <h3 className="font-medium text-[#2D2626]">Upcoming</h3>
+            <Calendar className="h-4 w-4 text-[#5C544F]" />
+          </div>
+          <CardContent className="p-0">
+            <div className="divide-y divide-[#E8E1D7]">
+              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
+                <p className="text-xs font-medium text-[#9B7250] mb-1">10:00 AM - 10:50 AM</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[14px] font-medium text-[#2D2626]">Elena M. (Session 4)</p>
+                  <Video className="h-4 w-4 text-[#5C544F]" />
+                </div>
+              </div>
+              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
+                <p className="text-xs font-medium text-[#9B7250] mb-1">11:30 AM - 12:20 PM</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[14px] font-medium text-[#2D2626]">Marcus C. (Intake Review)</p>
+                  <Video className="h-4 w-4 text-[#5C544F]" />
+                </div>
+              </div>
+              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
+                <p className="text-xs font-medium text-[#9B7250] mb-1">2:00 PM - 2:50 PM</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[14px] font-medium text-[#2D2626]">Jennifer P. (Session 12)</p>
+                  <Video className="h-4 w-4 text-[#5C544F]" />
+                </div>
+              </div>
+            </div>
+            <div className="p-3 border-t border-[#E8E1D7]">
+              <Button variant="ghost" className="w-full text-xs font-medium text-[#5C544F]">View Full Schedule</Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

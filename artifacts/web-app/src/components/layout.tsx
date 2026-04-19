@@ -3,13 +3,14 @@ import { cn } from "@/lib/utils";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { useAuth, useUser } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { LogOut, LayoutDashboard } from "lucide-react";
+import { LogOut, Bell, Search, Home as HomeIcon, LayoutDashboard, Users, Calendar } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function MarketingLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: health } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), retry: false, refetchInterval: 30000 } });
-  const { isSignedIn, signOut } = useAuth();
-  const { user } = useUser();
+  const { isSignedIn } = useAuth();
   const { data: currentUser } = useCurrentUser();
 
   const portalPath =
@@ -19,111 +20,140 @@ export function Layout({ children }: { children: React.ReactNode }) {
       ? "/therapist-portal"
       : "/portal";
 
-  const isOnAuth = location.startsWith("/sign-in") || location.startsWith("/sign-up") || location === "/onboarding";
-
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground selection:bg-primary/20 selection:text-primary-foreground font-sans">
-      <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/95 backdrop-blur-sm">
-        <div className="container flex h-14 max-w-screen-xl items-center px-4 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5 mr-8 transition-opacity hover:opacity-70">
-            <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shadow-sm">
-              <span className="font-serif italic text-base text-primary-foreground leading-none -mt-0.5">A</span>
-            </div>
-            <span className="font-serif text-xl font-medium tracking-tight text-foreground">Anamnesis</span>
-          </Link>
+    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground font-sans">
+      <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="container flex h-[72px] max-w-screen-xl items-center justify-between px-6 md:px-8 mx-auto">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
+              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                <span className="font-serif italic text-lg text-primary-foreground leading-none -mt-0.5">A</span>
+              </div>
+              <span className="font-serif text-2xl font-medium tracking-tight text-foreground">Anamnesis</span>
+            </Link>
 
-          {!isOnAuth && (
-            <nav className="flex flex-1 items-center gap-6 text-sm">
-              <Link
-                href="/"
-                className={cn("transition-colors hover:text-foreground", location === "/" ? "text-foreground font-medium" : "text-muted-foreground")}
-              >
-                Home
-              </Link>
-              {isSignedIn && currentUser?.role && (
-                <Link
-                  href={portalPath}
-                  className={cn("transition-colors hover:text-foreground", location === portalPath || location.startsWith("/patient-portal") || location.startsWith("/therapist-portal") ? "text-foreground font-medium" : "text-muted-foreground")}
-                >
-                  Dashboard
-                </Link>
-              )}
-              {(!isSignedIn || currentUser?.role === "patient") && (
-                <Link
-                  href="/sessions"
-                  className={cn("transition-colors hover:text-foreground", location.startsWith("/sessions") ? "text-foreground font-medium" : "text-muted-foreground")}
-                >
-                  Sessions
-                </Link>
-              )}
-              <Link
-                href="/therapists"
-                className={cn("transition-colors hover:text-foreground", location.startsWith("/therapists") ? "text-foreground font-medium" : "text-muted-foreground")}
-              >
-                Therapists
-              </Link>
-              {(!isSignedIn || currentUser?.role !== "therapist") && (
-                <Link
-                  href="/sign-in"
-                  className="transition-colors hover:text-foreground text-muted-foreground text-sm"
-                >
-                  For clinicians
-                </Link>
-              )}
+            <nav className="hidden md:flex items-center gap-7 text-[15px]">
+              <Link href="/" className={cn("transition-colors hover:text-foreground", location === "/" ? "text-foreground font-medium" : "text-muted-foreground")}>Home</Link>
+              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">Product</Link>
+              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Patients</Link>
+              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Therapists</Link>
+              <Link href="/therapists" className={cn("transition-colors hover:text-foreground", location.startsWith("/therapists") ? "text-foreground font-medium" : "text-muted-foreground")}>Directory</Link>
             </nav>
-          )}
+          </div>
 
-          {isOnAuth && <div className="flex-1" />}
-
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 mr-2 text-xs text-muted-foreground" title="API Status">
-              <div className={cn("h-1.5 w-1.5 rounded-full", health?.status === "ok" ? "bg-emerald-500" : "bg-destructive animate-pulse")} />
-              {health?.status === "ok" ? "Live" : "Connecting"}
-            </div>
-
+          <div className="flex items-center gap-5">
             {isSignedIn ? (
-              <div className="flex items-center gap-3">
-                {currentUser?.role === "patient" && (
-                  <Link href="/intake/new" className="hidden sm:inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
-                    New intake
-                  </Link>
-                )}
-                <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-foreground">
-                      {user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <span>{user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
-                  </div>
-                  <button
-                    onClick={() => signOut({ redirectUrl: "/" })}
-                    className="h-7 w-7 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-colors"
-                    title="Sign out"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+              <Link href={portalPath} className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity">
+                Dashboard
+              </Link>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/sign-in"
-                  className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Sign in
+              <>
+                <Link href="/sign-in" className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity hidden sm:block">
+                  Sign In
                 </Link>
-                <Link
-                  href="/sign-up"
-                  className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-                >
-                  Get started
+                <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-6 text-[15px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+                  Get Started
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </div>
       </header>
       <main className="flex-1 flex flex-col">{children}</main>
+    </div>
+  );
+}
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const [location, setLocation] = useLocation();
+  const { signOut } = useAuth();
+  const { user } = useUser();
+  const { data: currentUser } = useCurrentUser();
+
+  const isPatient = currentUser?.role === "patient";
+  const isTherapist = currentUser?.role === "therapist";
+
+  const initials = user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?";
+  const name = user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "User";
+
+  const navItems = [
+    { label: "Home", href: "/", icon: HomeIcon },
+    ...(isPatient ? [{ label: "Patient Portal", href: "/patient-portal", icon: LayoutDashboard }] : []),
+    ...(isTherapist ? [{ label: "Therapist Portal", href: "/therapist-portal", icon: LayoutDashboard }] : []),
+    { label: "Directory", href: "/therapists", icon: Users },
+  ];
+
+  return (
+    <div className="min-h-[100dvh] flex bg-[#F8F9FA] text-foreground font-sans">
+      {/* Left Sidebar */}
+      <aside className="w-[260px] bg-white border-r border-border/50 flex flex-col hidden md:flex sticky top-0 h-[100dvh]">
+        <div className="p-6">
+          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+              <span className="font-serif italic text-lg text-primary-foreground leading-none -mt-0.5">A</span>
+            </div>
+            <span className="font-serif text-2xl font-medium tracking-tight text-foreground">Anamnesis</span>
+          </Link>
+        </div>
+
+        <nav className="flex-1 px-4 space-y-1 mt-4">
+          {navItems.map((item) => {
+            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            return (
+              <Link key={item.label} href={item.href} className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
+                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              )}>
+                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 mt-auto border-t border-border/50">
+          <div className="flex items-center gap-3 px-2 py-2">
+            <Avatar className="h-9 w-9 bg-muted border border-border/50">
+              <AvatarImage src={user?.imageUrl} />
+              <AvatarFallback className="bg-primary/10 text-primary font-serif text-sm">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-medium text-foreground truncate">{name}</p>
+              <button onClick={() => signOut({ redirectUrl: "/" })} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header */}
+        <header className="h-[72px] bg-white border-b border-border/50 flex items-center justify-between px-8 sticky top-0 z-30">
+          <div className="relative w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search..." 
+              className="pl-9 bg-muted/30 border-border/50 h-10 rounded-lg text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2 text-[14px] font-medium text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+            </div>
+            <button className="relative h-10 w-10 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors">
+              <Bell className="h-4 w-4" />
+              <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-destructive border border-white" />
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto bg-[#F8F9FA] p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

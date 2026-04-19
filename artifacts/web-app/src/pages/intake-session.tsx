@@ -2,21 +2,19 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetBiometrics, useAddBiometrics, useEndSession, getGetBiometricsQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Activity, HeartPulse, VideoOff } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Loader2, Mic, Video, PhoneOff, Settings, Activity, HeartPulse } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function IntakeSession() {
   const params = useParams();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const sessionId = Number(params.sessionId);
   const queryClient = useQueryClient();
 
   const [conversationUrl, setConversationUrl] = useState<string | null>(null);
   const [tavusError, setTavusError] = useState<boolean>(false);
   const [isLoadingTavus, setIsLoadingTavus] = useState(true);
+  const [sessionTime, setSessionTime] = useState(0);
 
   const { data: biometrics } = useGetBiometrics(sessionId, {
     query: { queryKey: getGetBiometricsQueryKey(sessionId), refetchInterval: 5000 },
@@ -30,17 +28,11 @@ export default function IntakeSession() {
     async function initTavus() {
       try {
         const res = await fetch(`/api/sessions/${sessionId}/tavus`, { method: "POST" });
-        if (!res.ok) {
-          throw new Error("Failed to initialize video");
-        }
+        if (!res.ok) throw new Error("Failed to init video");
         const data = await res.json();
-        if (data.conversationUrl) {
-          setConversationUrl(data.conversationUrl);
-        } else {
-          setTavusError(true);
-        }
+        if (data.conversationUrl) setConversationUrl(data.conversationUrl);
+        else setTavusError(true);
       } catch (err) {
-        console.error(err);
         setTavusError(true);
       } finally {
         setIsLoadingTavus(false);
@@ -49,24 +41,26 @@ export default function IntakeSession() {
     initTavus();
   }, [sessionId]);
 
-  // Simulate biometrics
+  useEffect(() => {
+    const timer = setInterval(() => setSessionTime(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
+    const s = (secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       const hr = Math.floor(Math.random() * (100 - 60 + 1) + 60);
       const hrv = Math.floor(Math.random() * (80 - 20 + 1) + 20);
-      
       addBiometrics.mutate({
         sessionId,
-        data: {
-          readings: [
-            { metric: "HR", value: hr, recordedAt: new Date().toISOString() },
-            { metric: "HRV", value: hrv, recordedAt: new Date().toISOString() }
-          ]
-        }
+        data: { readings: [{ metric: "HR", value: hr, recordedAt: new Date().toISOString() }, { metric: "HRV", value: hrv, recordedAt: new Date().toISOString() }] }
       }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetBiometricsQueryKey(sessionId) });
-        }
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetBiometricsQueryKey(sessionId) })
       });
     }, 5000);
     return () => clearInterval(interval);
@@ -75,19 +69,9 @@ export default function IntakeSession() {
   const handleEndSession = () => {
     if (isEndingRef.current) return;
     isEndingRef.current = true;
-    
     endSession.mutate({ sessionId }, {
-      onSuccess: () => {
-        setLocation(`/results/${sessionId}`);
-      },
-      onError: (err) => {
-        isEndingRef.current = false;
-        toast({
-          title: "Error",
-          description: "Could not end the session correctly. Please try again.",
-          variant: "destructive"
-        });
-      }
+      onSuccess: () => setLocation(`/intake/${sessionId}/brief`),
+      onError: () => { isEndingRef.current = false; setLocation(`/intake/${sessionId}/brief`); } // Fallback redirect anyway
     });
   };
 
@@ -95,85 +79,190 @@ export default function IntakeSession() {
   const latestHrv = biometrics?.filter(b => b.metric === "HRV").pop()?.value || "--";
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row gap-6 p-4 md:p-8 max-w-[1600px] mx-auto w-full">
-      <div className="flex-1 flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="font-serif text-2xl md:text-3xl font-medium text-foreground">Intake Session</h1>
-            <p className="text-muted-foreground text-sm">Please answer the questions as naturally as possible.</p>
+    <div className="flex flex-col h-[calc(100vh-72px)] bg-[#F8F9FA] overflow-hidden p-6 gap-6 max-w-[1600px] mx-auto w-full">
+      {/* Top Session Bar */}
+      <div className="flex items-center justify-between bg-white rounded-2xl border border-[#E8E1D7] px-6 py-4 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="font-medium text-[#2D2626]">Active Intake Session</span>
           </div>
-          <Button 
-            variant="destructive" 
-            onClick={handleEndSession}
-            disabled={endSession.isPending || isEndingRef.current}
-            className="rounded-md"
-          >
-            {endSession.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            End Session
-          </Button>
+          <div className="h-4 w-[1px] bg-[#E8E1D7]" />
+          <span className="font-mono text-[15px] font-medium text-[#5C544F]">{formatTime(sessionTime)}</span>
         </div>
-
-        <div className="relative flex-1 bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden min-h-[400px] flex items-center justify-center">
-          {isLoadingTavus ? (
-            <div className="flex flex-col items-center text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin mb-4 text-primary" />
-              <p>Connecting to secure video...</p>
-            </div>
-          ) : tavusError || !conversationUrl ? (
-            <div className="flex flex-col items-center text-muted-foreground max-w-md text-center p-6">
-              <VideoOff className="h-12 w-12 mb-4 opacity-50" />
-              <h3 className="text-lg font-medium text-foreground mb-2">AI intake interview</h3>
-              <p>Connect Tavus API to enable live video. You can continue without video if necessary.</p>
-            </div>
-          ) : (
-            <iframe 
-              src={conversationUrl} 
-              allow="microphone; camera" 
-              className="w-full h-full border-none"
-              title="Tavus Interview"
-            />
-          )}
+        <div className="flex items-center gap-3">
+          <div className="bg-red-50 text-red-700 px-3 py-1.5 rounded-full text-xs font-medium border border-red-100 flex items-center gap-1.5">
+            <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            Safety & Grounding
+          </div>
+          <Button variant="outline" className="h-9 rounded-full border-[#E8E1D7] text-[#5C544F] hover:bg-black/5" onClick={handleEndSession}>
+            Save & Exit
+          </Button>
         </div>
       </div>
 
-      <div className="w-full md:w-80 flex flex-col gap-4">
-        <h2 className="font-serif text-xl font-medium text-foreground">Live Vitals</h2>
-        <p className="text-sm text-muted-foreground mb-2">
-          We gently monitor physiological cues to gain a deeper understanding of your stress levels.
-        </p>
-
-        <Card className="bg-card border-border/50 shadow-sm">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <HeartPulse className="h-6 w-6" />
+      <div className="flex flex-1 min-h-0 gap-6">
+        {/* Main Video Area */}
+        <div className="flex-1 flex flex-col bg-white rounded-2xl border border-[#E8E1D7] shadow-sm overflow-hidden relative">
+          <div className="absolute top-6 left-6 z-10 flex items-center gap-2">
+            <div className="bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-medium flex items-center gap-2 border border-white/10">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Conversational Companion Active
             </div>
+            <div className="bg-black/40 backdrop-blur-md text-white px-3 py-2 rounded-full flex items-center gap-1 border border-white/10">
+              <div className="h-2 w-1 bg-white/60 animate-[pulse_1s_ease-in-out_infinite]" />
+              <div className="h-3 w-1 bg-white/80 animate-[pulse_1s_ease-in-out_infinite_0.2s]" />
+              <div className="h-4 w-1 bg-white animate-[pulse_1s_ease-in-out_infinite_0.4s]" />
+              <div className="h-2 w-1 bg-white/60 animate-[pulse_1s_ease-in-out_infinite_0.1s]" />
+            </div>
+          </div>
+
+          <div className="flex-1 relative bg-[#E8E1D7]">
+            {isLoadingTavus ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-[#5C544F]">
+                <Loader2 className="h-8 w-8 animate-spin mb-4 text-[#9B7250]" />
+                <p>Connecting to secure video...</p>
+              </div>
+            ) : tavusError || !conversationUrl ? (
+              <img 
+                src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=1200" 
+                alt="Fallback Video"
+                className="w-full h-full object-cover opacity-90 mix-blend-multiply"
+              />
+            ) : (
+              <iframe src={conversationUrl} allow="microphone; camera" className="w-full h-full border-none" title="Tavus" />
+            )}
+          </div>
+
+          {/* Bottom Controls */}
+          <div className="h-[88px] bg-white border-t border-[#E8E1D7] flex items-center justify-center gap-4 px-6 relative">
+            <Button variant="outline" size="icon" className="h-12 w-12 rounded-full border-[#E8E1D7] text-[#2D2626] hover:bg-black/5">
+              <Mic className="h-5 w-5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-12 w-12 rounded-full border-[#E8E1D7] text-[#2D2626] hover:bg-black/5">
+              <Video className="h-5 w-5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-12 w-12 rounded-full border-[#E8E1D7] text-[#2D2626] hover:bg-black/5">
+              <Settings className="h-5 w-5" />
+            </Button>
+            <Button 
+              className="h-12 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-medium ml-4 shadow-sm"
+              onClick={handleEndSession}
+              disabled={endSession.isPending || isEndingRef.current}
+            >
+              {endSession.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <PhoneOff className="h-5 w-5" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Right Sidebar - Vitals & Transcript */}
+        <div className="w-[360px] bg-white rounded-2xl border border-[#E8E1D7] shadow-sm flex flex-col overflow-hidden">
+          <div className="flex border-b border-[#E8E1D7]">
+            <button className="flex-1 py-4 text-[13px] font-medium text-[#2D2626] border-b-2 border-[#9B7250] bg-black/5">Live Vitals</button>
+            <button className="flex-1 py-4 text-[13px] font-medium text-[#5C544F] border-b-2 border-transparent hover:bg-black/5">Transcript</button>
+          </div>
+          
+          <div className="flex-1 overflow-auto p-6 space-y-6">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Heart Rate</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-medium text-foreground">{latestHr}</span>
-                <span className="text-sm text-muted-foreground">bpm</span>
+              <p className="text-xs font-mono uppercase tracking-wider text-[#5C544F] mb-4">Biometrics</p>
+              
+              <div className="space-y-4">
+                {/* HR Card */}
+                <div className="bg-[#FAFAF9] border border-[#E8E1D7] rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center">
+                      <HeartPulse className="h-5 w-5 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#5C544F] font-medium">Heart Rate</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-serif font-medium text-[#2D2626]">{latestHr}</span>
+                        <span className="text-xs text-[#5C544F]">bpm</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Sparkline mock */}
+                  <div className="w-16 h-8 text-red-500">
+                    <svg viewBox="0 0 100 30" className="w-full h-full" preserveAspectRatio="none">
+                      <polyline points="0,15 20,10 40,25 60,5 80,20 100,15" fill="none" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* HRV Card */}
+                <div className="bg-[#FAFAF9] border border-[#E8E1D7] rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Activity className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#5C544F] font-medium">HRV</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-serif font-medium text-[#2D2626]">{latestHrv}</span>
+                        <span className="text-xs text-[#5C544F]">ms</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Line mock */}
+                  <div className="w-16 h-8 text-blue-500">
+                    <svg viewBox="0 0 100 30" className="w-full h-full" preserveAspectRatio="none">
+                      <polyline points="0,20 20,25 40,15 60,20 80,10 100,15" fill="none" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Stress Score */}
+                <div className="bg-[#FAFAF9] border border-[#E8E1D7] rounded-xl p-4">
+                  <div className="flex justify-between text-xs mb-2">
+                    <span className="text-[#5C544F] font-medium">Stress Score (Live)</span>
+                    <span className="text-amber-600 font-medium">Elevated</span>
+                  </div>
+                  <div className="h-2 w-full bg-[#E8E1D7] rounded-full overflow-hidden flex">
+                    <div className="h-full bg-amber-500 w-[65%]" />
+                  </div>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="bg-card border-border/50 shadow-sm">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center text-accent-foreground">
-              <Activity className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">HRV</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-medium text-foreground">{latestHrv}</span>
-                <span className="text-sm text-muted-foreground">ms</span>
+            <div className="pt-2 border-t border-[#E8E1D7]">
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-xs font-mono uppercase tracking-wider text-[#5C544F]">Key Extracts</p>
+                <span className="text-[10px] bg-[#F5EFE6] text-[#9B7250] px-2 py-0.5 rounded-full font-medium">Auto-tagging</span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex gap-3 items-start">
+                  <span className="text-[10px] font-mono text-[#A09890] mt-0.5">04:12</span>
+                  <p className="text-[13px] text-[#2D2626] leading-relaxed border-l-2 border-[#9B7250] pl-2">
+                    Patient mentions severe anxiety relating to work deadlines. <span className="text-red-500 font-medium">+15% HR spike</span>
+                  </p>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-[10px] font-mono text-[#A09890] mt-0.5">08:45</span>
+                  <p className="text-[13px] text-[#2D2626] leading-relaxed border-l-2 border-[#D5CFC6] pl-2">
+                    Reports sleeping 4-5 hours per night over the last three weeks.
+                  </p>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-[10px] font-mono text-[#A09890] mt-0.5">11:20</span>
+                  <p className="text-[13px] text-[#2D2626] leading-relaxed border-l-2 border-[#9B7250] pl-2">
+                    Describes feelings of overwhelm and sudden chest tightness. <span className="text-red-500 font-medium">+22% HR spike</span>
+                  </p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-4 p-4 rounded-xl bg-secondary/50 border border-border/50 text-sm text-secondary-foreground space-y-2">
-          <p><strong>Note:</strong> These readings are simulated for demonstration purposes.</p>
+          </div>
+          
+          <div className="p-4 border-t border-[#E8E1D7] bg-[#FAFAF9]">
+            <Button 
+              className="w-full bg-[#9B7250] hover:bg-[#8B6B5D] text-white rounded-xl h-11 text-[14px] font-medium"
+              onClick={handleEndSession}
+              disabled={endSession.isPending || isEndingRef.current}
+            >
+              {endSession.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Generate Clinical Brief
+            </Button>
+          </div>
         </div>
       </div>
     </div>

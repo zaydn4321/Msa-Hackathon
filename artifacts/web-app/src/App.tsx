@@ -4,7 +4,7 @@ import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wo
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Layout } from "@/components/layout";
+import { AppLayout, MarketingLayout } from "@/components/layout";
 import Home from "@/pages/home";
 import IntakeNew from "@/pages/intake-new";
 import IntakeSession from "@/pages/intake-session";
@@ -45,8 +45,8 @@ const clerkAppearance = {
     logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
   },
   variables: {
-    colorPrimary: "hsl(24, 36%, 48%)",
-    colorBackground: "hsl(38, 35%, 97%)",
+    colorPrimary: "hsl(28, 30%, 50%)",
+    colorBackground: "hsl(0, 0%, 100%)",
     colorInputBackground: "hsl(0, 0%, 100%)",
     colorText: "hsl(25, 18%, 16%)",
     colorTextSecondary: "hsl(25, 8%, 45%)",
@@ -59,22 +59,22 @@ const clerkAppearance = {
   },
   elements: {
     rootBox: "w-full",
-    cardBox: "shadow-sm border border-border/60 rounded-xl w-full overflow-hidden",
-    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: { color: "hsl(25, 18%, 16%)", fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: "2rem", fontWeight: "500" },
-    headerSubtitle: { color: "hsl(25, 8%, 45%)", fontSize: "0.875rem" },
-    socialButtonsBlockButtonText: { color: "hsl(25, 18%, 16%)" },
+    cardBox: "shadow-none border-0 w-full overflow-hidden",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none p-0",
+    footer: "!shadow-none !border-0 !bg-transparent !rounded-none p-0",
+    headerTitle: { color: "hsl(25, 18%, 16%)", fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: "2.25rem", fontWeight: "500", marginTop: "1rem" },
+    headerSubtitle: { color: "hsl(25, 8%, 45%)", fontSize: "0.875rem", display: "none" },
+    socialButtonsBlockButtonText: { color: "hsl(25, 18%, 16%)", fontWeight: "500" },
     formFieldLabel: { color: "hsl(25, 18%, 16%)", fontSize: "0.8125rem", fontWeight: "500" },
-    footerActionLink: { color: "hsl(24, 36%, 48%)" },
+    footerActionLink: { color: "hsl(28, 30%, 50%)", fontWeight: "500" },
     footerActionText: { color: "hsl(25, 8%, 45%)" },
-    dividerText: { color: "hsl(25, 8%, 45%)" },
-    identityPreviewEditButton: { color: "hsl(24, 36%, 48%)" },
+    dividerText: { color: "hsl(25, 8%, 45%)", fontSize: "11px", fontWeight: "600", letterSpacing: "0.05em" },
+    identityPreviewEditButton: { color: "hsl(28, 30%, 50%)" },
     formFieldSuccessText: { color: "hsl(150, 40%, 35%)" },
     alertText: { color: "hsl(25, 18%, 16%)" },
-    formButtonPrimary: "bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium",
-    formFieldInput: "border-border/60 bg-card text-sm rounded-md",
-    socialButtonsBlockButton: "border border-border/60 rounded-md",
+    formButtonPrimary: "bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium h-11",
+    formFieldInput: "border-border/60 bg-card text-sm rounded-md h-11",
+    socialButtonsBlockButton: "border border-border/60 rounded-md h-11 bg-white hover:bg-muted/50",
   },
 };
 
@@ -82,28 +82,36 @@ function HomeRedirect() {
   const { isSignedIn, isLoaded } = useAuth();
   if (!isLoaded) return null;
   if (isSignedIn) return <Redirect to="/portal" />;
-  return <Home />;
+  return (
+    <MarketingLayout>
+      <Home />
+    </MarketingLayout>
+  );
 }
 
-function RequireSignIn({ component: Component, redirectTo = "/sign-up" }: { component: ComponentType; redirectTo?: string }) {
+function RequireSignIn({ component: Component, redirectTo = "/sign-up", layout: LayoutComp }: { component: ComponentType; redirectTo?: string, layout?: ComponentType<{children: React.ReactNode}> }) {
   const { isSignedIn, isLoaded } = useAuth();
   if (!isLoaded) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-[100dvh]">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
   if (!isSignedIn) return <Redirect to={redirectTo} />;
+  
+  if (LayoutComp) {
+    return <LayoutComp><Component /></LayoutComp>;
+  }
   return <Component />;
 }
 
-function RequirePatient({ component: Component }: { component: ComponentType }) {
+function RequirePatient({ component: Component, layout: LayoutComp }: { component: ComponentType, layout?: ComponentType<{children: React.ReactNode}> }) {
   const { isSignedIn, isLoaded } = useAuth();
   const { data: user, isLoading: userLoading } = useCurrentUser();
   if (!isLoaded || userLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-[100dvh]">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -111,6 +119,10 @@ function RequirePatient({ component: Component }: { component: ComponentType }) 
   if (!isSignedIn) return <Redirect to="/sign-up" />;
   if (user?.role === "therapist") return <Redirect to="/therapist-portal" />;
   if (user?.role === null) return <Redirect to="/onboarding" />;
+  
+  if (LayoutComp) {
+    return <LayoutComp><Component /></LayoutComp>;
+  }
   return <Component />;
 }
 
@@ -119,7 +131,7 @@ function PortalRedirect() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-[100dvh]">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -131,27 +143,64 @@ function PortalRedirect() {
   return <Redirect to="/" />;
 }
 
-function SignInPage() {
-  // To update login providers, app branding, or OAuth settings use the Auth
-  // pane in the workspace toolbar. More information can be found in the Replit docs.
+function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md">
-        <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/portal`} />
+    <div className="min-h-[100dvh] flex flex-col md:flex-row bg-white">
+      <div className="w-full md:w-[45%] bg-[#F5EFE6] flex flex-col justify-between p-8 md:p-16 relative overflow-hidden">
+        <div>
+          <div className="flex items-center gap-2.5 mb-16">
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+              <span className="font-serif italic text-lg text-primary-foreground leading-none -mt-0.5">A</span>
+            </div>
+            <span className="font-serif text-2xl font-medium tracking-tight text-foreground">Anamnesis</span>
+          </div>
+          
+          <h1 className="font-serif text-4xl md:text-[3.5rem] font-medium leading-[1.1] text-[#2D2626] mb-6">
+            Empathetic intake.<br />
+            <span className="italic">Clinical precision.</span>
+          </h1>
+          <p className="text-[#5C544F] text-[15px] leading-relaxed max-w-md">
+            Anamnesis brings structured clinical conversation to your intake process, generating comprehensive SOAP notes and biomarker insights before the first session.
+          </p>
+        </div>
+        
+        <div className="mt-12 flex flex-wrap gap-3">
+          <div className="inline-flex items-center rounded-full border border-[#D5CFC6] bg-transparent px-4 py-1.5 text-xs font-mono uppercase tracking-wider text-[#5C544F]">
+            Provider Portal
+          </div>
+          <div className="inline-flex items-center rounded-full border border-[#D5CFC6] bg-transparent px-4 py-1.5 text-xs font-mono uppercase tracking-wider text-[#5C544F]">
+            HIPAA Compliant
+          </div>
+          <div className="inline-flex items-center rounded-full border border-[#D5CFC6] bg-transparent px-4 py-1.5 text-xs font-mono uppercase tracking-wider text-[#5C544F]">
+            SOC2 Type II
+          </div>
+        </div>
+      </div>
+      <div className="w-full md:w-[55%] flex items-center justify-center p-8">
+        <div className="w-full max-w-[400px]">
+          {children}
+          <div className="mt-8 text-center text-[13px] text-muted-foreground">
+            By continuing, you agree to our <a href="#" className="underline underline-offset-2">Terms of Service</a> and <a href="#" className="underline underline-offset-2">Privacy Policy</a>.
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function SignUpPage() {
-  // To update login providers, app branding, or OAuth settings use the Auth
-  // pane in the workspace toolbar. More information can be found in the Replit docs.
+function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md">
-        <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} fallbackRedirectUrl={`${basePath}/onboarding`} />
-      </div>
-    </div>
+    <AuthLayout>
+      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/portal`} />
+    </AuthLayout>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <AuthLayout>
+      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} fallbackRedirectUrl={`${basePath}/onboarding`} />
+    </AuthLayout>
   );
 }
 
@@ -182,23 +231,41 @@ function Router() {
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/portal" component={PortalRedirect} />
       <Route path="/onboarding" component={OnboardingPage} />
-      <Route path="/patient-portal" component={PatientPortal} />
-      <Route path="/therapist-portal" component={TherapistPortal} />
+      <Route path="/patient-portal">
+        {() => <RequirePatient component={PatientPortal} layout={AppLayout} />}
+      </Route>
+      <Route path="/therapist-portal">
+        {() => <RequireSignIn component={TherapistPortal} redirectTo="/sign-in" layout={AppLayout} />}
+      </Route>
       <Route path="/intake/new">
-        {() => <RequirePatient component={IntakeNew} />}
+        {() => <RequirePatient component={IntakeNew} layout={AppLayout} />}
       </Route>
       <Route path="/intake/:sessionId">
-        {() => <RequirePatient component={IntakeSession} />}
+        {() => <RequirePatient component={IntakeSession} layout={AppLayout} />}
       </Route>
       <Route path="/intake/:sessionId/brief">
-        {() => <RequireSignIn component={IntakeBrief} redirectTo="/sign-in" />}
+        {() => <RequireSignIn component={IntakeBrief} redirectTo="/sign-in" layout={MarketingLayout} />}
       </Route>
       <Route path="/results/:sessionId">
-        {() => <RequireSignIn component={Results} redirectTo="/sign-in" />}
+        {() => <RequireSignIn component={Results} redirectTo="/sign-in" layout={MarketingLayout} />}
       </Route>
-      <Route path="/therapists" component={TherapistsList} />
-      <Route path="/therapists/:therapistId" component={TherapistDetail} />
-      <Route path="/sessions" component={SessionsList} />
+      <Route path="/therapists">
+        {() => (
+          <MarketingLayout>
+            <TherapistsList />
+          </MarketingLayout>
+        )}
+      </Route>
+      <Route path="/therapists/:therapistId">
+        {() => (
+          <MarketingLayout>
+            <TherapistDetail />
+          </MarketingLayout>
+        )}
+      </Route>
+      <Route path="/sessions">
+        {() => <RequirePatient component={SessionsList} layout={AppLayout} />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -213,8 +280,8 @@ function ClerkProviderWithRoutes() {
       proxyUrl={clerkProxyUrl}
       appearance={clerkAppearance}
       localization={{
-        signIn: { start: { title: "Welcome back", subtitle: "Sign in to your Anamnesis account" } },
-        signUp: { start: { title: "Create your account", subtitle: "Join Anamnesis — takes less than a minute" } },
+        signIn: { start: { title: "Sign in", subtitle: " " } },
+        signUp: { start: { title: "Create account", subtitle: " " } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
@@ -222,9 +289,7 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
         <TooltipProvider>
-          <Layout>
-            <Router />
-          </Layout>
+          <Router />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
