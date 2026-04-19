@@ -15,13 +15,15 @@ const TAVUS_API_KEY = process.env.TAVUS_API_KEY;
 const TAVUS_PERSONA_ID = process.env.TAVUS_PERSONA_ID;
 const TAVUS_REPLICA_ID = process.env.TAVUS_REPLICA_ID ?? "rd3ba0f30551";
 
-async function createTavusConversation(sessionId: number): Promise<{
-  conversationId: string;
-  conversationUrl: string;
-} | null> {
+type TavusFailure = { error: string; status?: number; detail?: string };
+
+async function createTavusConversation(sessionId: number): Promise<
+  | { conversationId: string; conversationUrl: string }
+  | TavusFailure
+> {
   if (!TAVUS_API_KEY) {
-    logger.warn("TAVUS_API_KEY not set — returning null");
-    return null;
+    logger.warn("TAVUS_API_KEY not set");
+    return { error: "TAVUS_API_KEY is not configured on the server." };
   }
 
   const body: Record<string, unknown> = {
@@ -55,7 +57,22 @@ Be compassionate and non-judgmental. Keep the conversation focused but let the p
   if (!response.ok) {
     const text = await response.text();
     logger.error({ status: response.status, body: text }, "Tavus conversation creation failed");
-    return null;
+    let detail = text;
+    try {
+      const parsed = JSON.parse(text) as { message?: string; error?: string };
+      detail = parsed.message ?? parsed.error ?? text;
+    } catch {
+      // keep raw text
+    }
+    let friendly = `Tavus error (${response.status}): ${detail}`;
+    if (response.status === 402 || /credit|quota|billing|insufficient|exceeded/i.test(detail)) {
+      friendly = "Tavus account is out of credits or has hit a usage limit.";
+    } else if (response.status === 401 || response.status === 403) {
+      friendly = "Tavus rejected the API key.";
+    } else if (response.status === 429) {
+      friendly = "Tavus rate limit reached — try again in a moment.";
+    }
+    return { error: friendly, status: response.status, detail };
   }
 
   const data = await response.json() as { conversation_id: string; conversation_url: string };
@@ -128,9 +145,11 @@ router.post("/sessions/:sessionId/tavus", requireAuth, async (req, res): Promise
   }
 
   const tavus = await createTavusConversation(sessionId);
+  const tavusOk = tavus !== null && "conversationId" in tavus;
+  const tavusErr = !tavusOk ? (tavus as TavusFailure) : null;
 
   if (existing) {
-    if (tavus) {
+    if (tavusOk) {
       await db
         .update(conversationsTable)
         .set({
@@ -141,8 +160,9 @@ router.post("/sessions/:sessionId/tavus", requireAuth, async (req, res): Promise
         .where(eq(conversationsTable.id, existing.id));
     }
     res.json({
-      conversationUrl: tavus?.conversationUrl ?? null,
-      externalId: tavus?.conversationId ?? null,
+      conversationUrl: tavusOk ? tavus.conversationUrl : null,
+      externalId: tavusOk ? tavus.conversationId : null,
+      error: tavusErr?.error ?? null,
     });
     return;
   }
@@ -152,8 +172,8 @@ router.post("/sessions/:sessionId/tavus", requireAuth, async (req, res): Promise
     .values({
       sessionId,
       provider: "tavus",
-      externalId: tavus?.conversationId ?? null,
-      conversationUrl: tavus?.conversationUrl ?? null,
+      externalId: tavusOk ? tavus.conversationId : null,
+      conversationUrl: tavusOk ? tavus.conversationUrl : null,
       status: "active",
     })
     .returning();
@@ -161,6 +181,7 @@ router.post("/sessions/:sessionId/tavus", requireAuth, async (req, res): Promise
   res.status(201).json({
     conversationUrl: conversation.conversationUrl ?? null,
     externalId: conversation.externalId,
+    error: tavusErr?.error ?? null,
   });
 });
 

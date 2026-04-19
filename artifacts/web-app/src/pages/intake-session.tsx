@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetBiometrics, useAddBiometrics, useEndSession, getGetBiometricsQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mic, Video, PhoneOff, Settings, Activity, HeartPulse } from "lucide-react";
+import { Loader2, Mic, Video, PhoneOff, Settings, Activity, HeartPulse, AlertCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function IntakeSession() {
@@ -12,7 +12,7 @@ export default function IntakeSession() {
   const queryClient = useQueryClient();
 
   const [conversationUrl, setConversationUrl] = useState<string | null>(null);
-  const [tavusError, setTavusError] = useState<boolean>(false);
+  const [tavusError, setTavusError] = useState<string | null>(null);
   const [isLoadingTavus, setIsLoadingTavus] = useState(true);
   const [sessionTime, setSessionTime] = useState(0);
 
@@ -28,12 +28,16 @@ export default function IntakeSession() {
     async function initTavus() {
       try {
         const res = await fetch(`/api/sessions/${sessionId}/tavus`, { method: "POST" });
-        if (!res.ok) throw new Error("Failed to init video");
-        const data = await res.json();
-        if (data.conversationUrl) setConversationUrl(data.conversationUrl);
-        else setTavusError(true);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setTavusError(data?.error ?? `Server returned ${res.status}.`);
+        } else if (data.conversationUrl) {
+          setConversationUrl(data.conversationUrl);
+        } else {
+          setTavusError(data?.error ?? "Tavus did not return a conversation URL.");
+        }
       } catch (err) {
-        setTavusError(true);
+        setTavusError(err instanceof Error ? err.message : "Network error contacting the server.");
       } finally {
         setIsLoadingTavus(false);
       }
@@ -124,11 +128,18 @@ export default function IntakeSession() {
                 <p>Connecting to secure video...</p>
               </div>
             ) : tavusError || !conversationUrl ? (
-              <img 
-                src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=1200" 
-                alt="Fallback Video"
-                className="w-full h-full object-cover opacity-90 mix-blend-multiply"
-              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8 bg-gradient-to-br from-[#2D2626] to-[#3a3030] text-[#F5EFE6]">
+                <div className="h-14 w-14 rounded-full bg-white/10 border border-white/15 flex items-center justify-center mb-5">
+                  <AlertCircle className="h-7 w-7 text-[#E8B7A0]" />
+                </div>
+                <p className="font-serif text-2xl mb-3">Video companion unavailable</p>
+                <p className="text-sm text-[#F5EFE6]/70 max-w-md leading-relaxed mb-6">
+                  {tavusError ?? "The Tavus session could not be started."}
+                </p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-[#F5EFE6]/40">
+                  You can still complete the session — biometrics and notes will be captured.
+                </p>
+              </div>
             ) : (
               <iframe src={conversationUrl} allow="microphone; camera" className="w-full h-full border-none" title="Tavus" />
             )}

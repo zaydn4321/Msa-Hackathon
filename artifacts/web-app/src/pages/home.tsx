@@ -31,20 +31,55 @@ export default function Home() {
           </div>
           
           <div className="flex-1 w-full relative">
-            <div className="relative rounded-2xl overflow-hidden shadow-xl border border-white/20 aspect-[4/3] bg-[#E8E1D7]">
-              <img 
-                src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=1000" 
-                alt="Patient in conversation"
-                className="w-full h-full object-cover mix-blend-multiply opacity-80"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-16 w-16 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-lg cursor-pointer hover:scale-105 transition-transform">
-                  <Play className="h-6 w-6 text-[#9B7250] ml-1" />
+            {/* Brand visual: a stylised "intake session" preview, no stock imagery */}
+            <div className="relative rounded-2xl overflow-hidden shadow-xl border border-[#E8E1D7] aspect-[4/3] bg-gradient-to-br from-[#2D2626] via-[#3a302a] to-[#5C4537] p-8 flex flex-col justify-between">
+              {/* Top: session chrome */}
+              <div className="flex items-center justify-between text-[#F5EFE6]/80">
+                <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Session in progress
+                </div>
+                <span className="font-mono text-xs text-[#F5EFE6]/60">14:23</span>
+              </div>
+
+              {/* Center: serif quote rising out of the conversation */}
+              <div className="flex flex-col items-center text-center">
+                <div className="h-16 w-16 rounded-full bg-[#F5EFE6]/10 border border-[#F5EFE6]/15 flex items-center justify-center mb-5">
+                  <span className="font-serif italic text-3xl text-[#F5EFE6] leading-none -mt-1">A</span>
+                </div>
+                <p className="font-serif italic text-xl md:text-2xl text-[#F5EFE6] leading-snug max-w-sm">
+                  &ldquo;What brought you here today?&rdquo;
+                </p>
+                <p className="text-xs font-mono uppercase tracking-wider text-[#F5EFE6]/50 mt-3">
+                  Sakinah · Conversational Companion
+                </p>
+              </div>
+
+              {/* Bottom: live waveform + vitals strip */}
+              <div className="flex items-end justify-between gap-4 text-[#F5EFE6]/70">
+                <div className="flex items-end gap-1 h-7">
+                  {[3, 6, 4, 8, 5, 10, 6, 12, 7, 9, 5, 7, 4, 8, 5].map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-[#F5EFE6]/60 rounded-full animate-[pulse_1.6s_ease-in-out_infinite]"
+                      style={{ height: `${h * 2}px`, animationDelay: `${i * 0.08}s` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <HeartPulse className="h-3.5 w-3.5 text-[#E8B7A0]" />
+                    <span className="font-mono">72 bpm</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-[#A8C5E0]" />
+                    <span className="font-mono">48 ms</span>
+                  </div>
                 </div>
               </div>
             </div>
-            
-            {/* Floating badges */}
+
+            {/* Floating badge */}
             <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-lg border border-[#E8E1D7] p-4 flex items-center gap-4">
               <div className="h-10 w-10 rounded-full bg-[#F5EFE6] flex items-center justify-center">
                 <HeartPulse className="h-5 w-5 text-[#9B7250]" />
