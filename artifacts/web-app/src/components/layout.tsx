@@ -3,7 +3,9 @@ import { cn } from "@/lib/utils";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { useAuth, useUser } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { LogOut, Bell, Search, Home as HomeIcon, LayoutDashboard, Users, Calendar } from "lucide-react";
+import { LogOut, Bell, Search, Home as HomeIcon, LayoutDashboard, Users, Calendar, UserCog, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 
@@ -64,6 +66,62 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+const PRIOR_PATIENT_KEY = "anamnesis.dev.priorPatientId";
+
+function useDevRoleSwitch(currentRole: "patient" | "therapist" | null | undefined) {
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/dev/role-switch/enabled", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setEnabled(!!d.enabled))
+      .catch(() => setEnabled(false));
+  }, []);
+
+  const switchTo = async (target: "patient" | "therapist") => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const priorPatientId =
+        target === "patient"
+          ? Number(localStorage.getItem(PRIOR_PATIENT_KEY)) || undefined
+          : undefined;
+      const res = await fetch("/api/dev/role-switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ role: target, priorPatientId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      if (target === "therapist" && data.priorPatientId) {
+        localStorage.setItem(PRIOR_PATIENT_KEY, String(data.priorPatientId));
+      }
+      if (target === "patient") {
+        localStorage.removeItem(PRIOR_PATIENT_KEY);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["auth/me"] });
+      setLocation(target === "therapist" ? "/therapist-portal" : "/patient-portal");
+    } catch (err) {
+      console.error("[dev role switch]", err);
+      alert("Role switch failed — check console.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return {
+    enabled,
+    busy,
+    switchTo,
+    canViewAsTherapist: enabled && currentRole === "patient",
+    canViewAsPatient: enabled && currentRole === "therapist",
+  };
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { signOut } = useAuth();
@@ -72,6 +130,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isPatient = currentUser?.role === "patient";
   const isTherapist = currentUser?.role === "therapist";
+  const devSwitch = useDevRoleSwitch(currentUser?.role);
 
   const initials = user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?";
   const name = user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "User";
@@ -111,7 +170,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-border/50">
+        <div className="p-4 mt-auto border-t border-border/50 space-y-2">
+          {devSwitch.enabled && (devSwitch.canViewAsTherapist || devSwitch.canViewAsPatient) && (
+            <button
+              onClick={() =>
+                devSwitch.switchTo(devSwitch.canViewAsTherapist ? "therapist" : "patient")
+              }
+              disabled={devSwitch.busy}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-[#9B7250] bg-[#F5EFE6] hover:bg-[#EFE7DA] border border-[#E8E1D7] transition-colors disabled:opacity-60"
+              title="Dev only — toggles between patient and therapist views"
+            >
+              {devSwitch.busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserCog className="h-4 w-4" />
+              )}
+              {devSwitch.canViewAsTherapist ? "View as therapist" : "View as patient"}
+            </button>
+          )}
           <div className="flex items-center gap-3 px-2 py-2">
             <Avatar className="h-9 w-9 bg-muted border border-border/50">
               <AvatarImage src={user?.imageUrl} />
