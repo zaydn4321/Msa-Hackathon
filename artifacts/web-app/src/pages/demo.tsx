@@ -16,6 +16,14 @@ type DemoAccount = {
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// Public demo password — must match server-side DEMO_ACCOUNT_PASSWORD.
+// Defaults are kept in lockstep across server (`demoCredentials.ts`) and
+// client; a non-default value should be set in BOTH `DEMO_ACCOUNT_PASSWORD`
+// and `VITE_DEMO_ACCOUNT_PASSWORD` so they cannot drift.
+const DEMO_PASSWORD =
+  (import.meta.env.VITE_DEMO_ACCOUNT_PASSWORD as string | undefined) ||
+  "Anamnesis-Demo-2026";
+
 async function copy(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -62,10 +70,7 @@ export default function DemoPage() {
   const { toast } = useToast();
   const [signingIn, setSigningIn] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery<{
-    accounts: DemoAccount[];
-    sharedPassword: string;
-  }>({
+  const { data, isLoading, error } = useQuery<{ accounts: DemoAccount[] }>({
     queryKey: ["demo/accounts"],
     queryFn: async () => {
       const res = await fetch("/api/demo/accounts");
@@ -74,8 +79,6 @@ export default function DemoPage() {
     },
     staleTime: 60_000,
   });
-
-  const demoPassword = data?.sharedPassword ?? "";
 
   const { patients, therapists } = useMemo(() => {
     const list = data?.accounts ?? [];
@@ -93,8 +96,8 @@ export default function DemoPage() {
     toast({
       title: copied ? "Email copied" : "Use this email to sign in",
       description: copied
-        ? `Pasted into the form. Password: ${demoPassword}`
-        : `${email} — password: ${demoPassword}`,
+        ? `Pasted into the form. Password: ${DEMO_PASSWORD}`
+        : `${email} — password: ${DEMO_PASSWORD}`,
     });
 
     if (isSignedIn) {
@@ -144,10 +147,10 @@ export default function DemoPage() {
               Shared password
             </div>
             <div className="font-mono text-base text-[#2D2626] tracking-tight select-all">
-              {demoPassword || "…"}
+              {DEMO_PASSWORD}
             </div>
           </div>
-          {demoPassword && <CopyButton value={demoPassword} label="password" />}
+          <CopyButton value={DEMO_PASSWORD} label="password" />
         </div>
 
         {isLoading && (

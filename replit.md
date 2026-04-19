@@ -72,7 +72,8 @@ lib/
 | TAVUS_PERSONA_ID | Tavus persona ID (optional) |
 | TAVUS_REPLICA_ID | Tavus replica ID (optional) |
 | SESSION_SECRET | Cookie signing secret |
-| DEMO_ACCOUNT_PASSWORD | Shared password used when provisioning demo Clerk accounts (default: `Anamnesis-Demo-2026`). Single source of truth: the `/api/demo/accounts` endpoint returns this same value to the `/demo` page so the displayed password and the provisioned Clerk password can never drift. |
+| DEMO_ACCOUNT_PASSWORD | Server-side: shared password used when provisioning demo Clerk accounts (default: `Anamnesis-Demo-2026`) |
+| VITE_DEMO_ACCOUNT_PASSWORD | Client-side: same password, displayed on the `/demo` page. Must be kept in lockstep with `DEMO_ACCOUNT_PASSWORD` (same default) |
 
 ## Demo accounts
 

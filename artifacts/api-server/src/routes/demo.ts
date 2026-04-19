@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, patientsTable, therapistsTable } from "@workspace/db";
 import { isNotNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
-import { DEMO_PASSWORD, isDemoEmail } from "../lib/demoCredentials";
+import { isDemoEmail } from "../lib/demoCredentials";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -24,7 +24,7 @@ const CACHE_TTL_MS = 30_000;
 router.get("/demo/accounts", async (_req, res) => {
   const now = Date.now();
   if (accountCache.value && now - accountCache.loadedAt < CACHE_TTL_MS) {
-    res.json({ accounts: accountCache.value, sharedPassword: DEMO_PASSWORD });
+    res.json({ accounts: accountCache.value });
     return;
   }
 
@@ -103,11 +103,11 @@ router.get("/demo/accounts", async (_req, res) => {
 
     accountCache.value = accounts;
     accountCache.loadedAt = now;
-    res.json({ accounts, sharedPassword: DEMO_PASSWORD });
+    res.json({ accounts });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ err: message }, "Failed to list demo accounts");
-    res.json({ accounts: [], sharedPassword: DEMO_PASSWORD });
+    res.json({ accounts: [] });
   }
 });
 

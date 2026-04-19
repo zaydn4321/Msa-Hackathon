@@ -109,9 +109,11 @@ export async function seedDemoLogins(): Promise<void> {
           .set({ clerkUserId })
           .where(eq(therapistsTable.id, row.row.id));
       }
-    } catch (err: any) {
+    } catch (err) {
       failed++;
-      const message = err?.errors?.[0]?.message || err?.message || String(err);
+      const e = err as { errors?: Array<{ message?: string }>; message?: string };
+      const message =
+        e.errors?.[0]?.message ?? e.message ?? String(err);
       logger.warn(
         { email, kind: row.kind, name: displayName, message },
         "[demo-logins] Clerk provisioning failed for one account",

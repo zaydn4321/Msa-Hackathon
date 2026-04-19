@@ -23,6 +23,14 @@ const demoPatients = [
       clinicalProfiles: ["anxiety", "burnout"],
     },
   },
+  {
+    name: "Jordan Kim",
+    demographics: {
+      age: 31,
+      gender: "male",
+      clinicalProfiles: ["ocd", "anxiety"],
+    },
+  },
 ];
 
 export async function bootstrapDemoData() {
