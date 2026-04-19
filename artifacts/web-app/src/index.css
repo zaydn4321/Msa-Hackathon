@@ -76,53 +76,53 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 40 20% 98%; 
-  --foreground: 20 10% 15%;
+  --background: 38 35% 95%;
+  --foreground: 25 18% 16%;
 
   --card: 0 0% 100%;
-  --card-foreground: 20 10% 15%;
-  --card-border: 40 15% 90%;
+  --card-foreground: 25 18% 16%;
+  --card-border: 32 22% 88%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 20 10% 15%;
-  --popover-border: 40 15% 90%;
+  --popover-foreground: 25 18% 16%;
+  --popover-border: 32 22% 88%;
 
-  --primary: 25 35% 45%; 
-  --primary-foreground: 40 20% 98%;
+  --primary: 24 36% 48%;
+  --primary-foreground: 38 35% 97%;
 
-  --secondary: 40 25% 90%;
-  --secondary-foreground: 20 10% 25%;
+  --secondary: 35 30% 90%;
+  --secondary-foreground: 25 18% 22%;
 
-  --muted: 40 20% 92%;
-  --muted-foreground: 20 5% 45%;
+  --muted: 36 28% 92%;
+  --muted-foreground: 25 8% 45%;
 
-  --accent: 150 20% 90%;
-  --accent-foreground: 150 40% 25%;
+  --accent: 24 40% 92%;
+  --accent-foreground: 24 36% 35%;
 
   --destructive: 0 60% 50%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 40 15% 85%;
-  --input: 40 15% 85%;
-  --ring: 25 35% 45%;
+  --border: 32 22% 86%;
+  --input: 32 22% 86%;
+  --ring: 24 36% 48%;
 
-  --sidebar: 40 20% 96%;
-  --sidebar-foreground: 20 10% 25%;
-  --sidebar-border: 40 15% 85%;
-  --sidebar-primary: 25 35% 45%;
-  --sidebar-primary-foreground: 40 20% 98%;
-  --sidebar-accent: 40 25% 90%;
-  --sidebar-accent-foreground: 20 10% 25%;
-  --sidebar-ring: 25 35% 45%;
+  --sidebar: 38 35% 97%;
+  --sidebar-foreground: 25 12% 28%;
+  --sidebar-border: 32 22% 88%;
+  --sidebar-primary: 24 36% 48%;
+  --sidebar-primary-foreground: 38 35% 97%;
+  --sidebar-accent: 35 30% 90%;
+  --sidebar-accent-foreground: 25 18% 22%;
+  --sidebar-ring: 24 36% 48%;
 
-  --chart-1: 25 35% 45%;
+  --chart-1: 24 36% 48%;
   --chart-2: 150 30% 45%;
   --chart-3: 200 30% 50%;
   --chart-4: 40 40% 60%;
   --chart-5: 340 30% 55%;
 
-  --app-font-sans: 'Geist', 'Inter', sans-serif;
-  --app-font-serif: 'Instrument Serif', Georgia, serif;
+  --app-font-sans: 'Inter', 'Geist', sans-serif;
+  --app-font-serif: 'Cormorant Garamond', 'Instrument Serif', Georgia, serif;
   --app-font-mono: 'Space Mono', Menlo, monospace;
   
   --radius: 0.5rem; 

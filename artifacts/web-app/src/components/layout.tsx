@@ -26,10 +26,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/95 backdrop-blur-sm">
         <div className="container flex h-14 max-w-screen-xl items-center px-4 md:px-8">
           <Link href="/" className="flex items-center gap-2.5 mr-8 transition-opacity hover:opacity-70">
-            <div className="h-5 w-5 rounded-sm bg-primary flex items-center justify-center">
-              <div className="h-2 w-2 rounded-[1px] bg-primary-foreground opacity-80" />
+            <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shadow-sm">
+              <span className="font-serif italic text-base text-primary-foreground leading-none -mt-0.5">A</span>
             </div>
-            <span className="font-serif text-lg font-medium tracking-tight text-foreground">Anamnesis</span>
+            <span className="font-serif text-xl font-medium tracking-tight text-foreground">Anamnesis</span>
           </Link>
 
           {!isOnAuth && (
