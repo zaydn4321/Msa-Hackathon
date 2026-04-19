@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useClerk, useAuth, useSignIn } from "@clerk/react";
+import { useClerk, useAuth } from "@clerk/react";
+import { useSignIn } from "@clerk/react/legacy";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Copy, Check, LogIn, UserRound, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ export default function DemoPage() {
   const [, setLocation] = useLocation();
   const { signOut } = useClerk();
   const { isSignedIn } = useAuth();
-  const { signIn } = useSignIn();
+  const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
   const { toast } = useToast();
   const [signingIn, setSigningIn] = useState<string | null>(null);
 
@@ -82,6 +83,7 @@ export default function DemoPage() {
   }, [data]);
 
   async function signInAs(email: string) {
+    if (!signInLoaded) return;
     setSigningIn(email);
     try {
       if (isSignedIn) {
@@ -99,15 +101,11 @@ export default function DemoPage() {
       }
       const { token } = (await tokenRes.json()) as { token: string };
 
-      const ticketRes = await signIn.ticket({ ticket: token });
-      if (ticketRes.error) {
-        throw ticketRes.error;
+      const result = await signIn.create({ strategy: "ticket", ticket: token });
+      if (result.status !== "complete" || !result.createdSessionId) {
+        throw new Error(`Unexpected sign-in status: ${result.status}`);
       }
-
-      const finalRes = await signIn.finalize();
-      if (finalRes.error) {
-        throw finalRes.error;
-      }
+      await setActive({ session: result.createdSessionId });
 
       toast({
         title: "Signed in",
