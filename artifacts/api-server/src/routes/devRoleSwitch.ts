@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, isNull, and, sql } from "drizzle-orm";
-import { db, patientsTable, therapistsTable } from "@workspace/db";
+import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
+import { db, patientsTable, therapistsTable, patientTherapistMatchesTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 
@@ -51,12 +51,49 @@ router.post("/dev/role-switch", requireAuth, async (req, res): Promise<void> => 
 
     let therapistRow = alreadyLinked;
     if (!therapistRow) {
-      const [available] = await db
-        .select()
-        .from(therapistsTable)
-        .where(isNull(therapistsTable.clerkUserId))
-        .orderBy(therapistsTable.id)
-        .limit(1);
+      // If this user just requested one or more therapists as a patient,
+      // prefer linking to the therapist of their most recent match — so the
+      // demo flow "request therapist, flip to therapist mode, see the request"
+      // lands on the right account instead of a random unlinked seed row.
+      let preferred: typeof therapistsTable.$inferSelect | undefined;
+      if (currentPatient) {
+        const recentMatches = await db
+          .select()
+          .from(patientTherapistMatchesTable)
+          .where(eq(patientTherapistMatchesTable.patientId, currentPatient.id))
+          .orderBy(desc(patientTherapistMatchesTable.createdAt));
+        const therapistIds = recentMatches.map((m) => m.therapistId);
+        if (therapistIds.length > 0) {
+          const candidates = await db
+            .select()
+            .from(therapistsTable)
+            .where(
+              and(
+                inArray(therapistsTable.id, therapistIds),
+                isNull(therapistsTable.clerkUserId),
+              ),
+            );
+          // Pick the candidate matching the most recent match
+          for (const m of recentMatches) {
+            const hit = candidates.find((c) => c.id === m.therapistId);
+            if (hit) {
+              preferred = hit;
+              break;
+            }
+          }
+        }
+      }
+
+      const available =
+        preferred ??
+        (
+          await db
+            .select()
+            .from(therapistsTable)
+            .where(isNull(therapistsTable.clerkUserId))
+            .orderBy(therapistsTable.id)
+            .limit(1)
+        )[0];
 
       if (!available) {
         res.status(409).json({ error: "No unlinked therapist profile available." });
