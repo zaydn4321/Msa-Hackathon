@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useGetSessionBrief, useMatchTherapist, getGetSessionBriefQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Download, Share2, Brain, Activity, HeartPulse, Stethoscope, ArrowRight } from "lucide-react";
+import { Loader2, Download, Share2, Brain, Activity, HeartPulse, Stethoscope, ArrowRight, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LineChart,
@@ -38,6 +38,39 @@ export default function IntakeBrief() {
   });
 
   const matchTherapist = useMatchTherapist();
+  const [myMatchedTherapistIds, setMyMatchedTherapistIds] = useState<Set<number>>(new Set());
+  const [requestingMatchId, setRequestingMatchId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/patient/my-matches", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { matches: [] }))
+      .then((data) => {
+        const forSession = (data.matches ?? []).filter(
+          (m: { sessionId: number }) => m.sessionId === sessionId,
+        );
+        setMyMatchedTherapistIds(
+          new Set(forSession.map((m: { therapistId: number }) => m.therapistId)),
+        );
+      })
+      .catch(() => {});
+  }, [sessionId]);
+
+  const requestMatch = async (therapistId: number) => {
+    setRequestingMatchId(therapistId);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/match`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ therapistId }),
+      });
+      if (res.ok) {
+        setMyMatchedTherapistIds((prev) => new Set(prev).add(therapistId));
+      }
+    } finally {
+      setRequestingMatchId(null);
+    }
+  };
 
   useEffect(() => {
     if (session?.clinicalBrief?.clinicalProfile && !matchTherapist.data && !matchTherapist.isPending && !matchTherapist.isError) {
@@ -368,11 +401,32 @@ export default function IntakeBrief() {
                         </div>
                       </div>
                     </div>
-                    <Link href={`/therapists/${matchTherapist.data.matches[0].id}`}>
-                      <Button className="w-full bg-[#2D2626] hover:bg-black text-white h-10 rounded-xl text-[14px] font-medium">
-                        View Profile & Book
-                      </Button>
-                    </Link>
+                    {(() => {
+                      const tid = matchTherapist.data.matches[0].id;
+                      const matched = myMatchedTherapistIds.has(tid);
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            disabled={matched || requestingMatchId === tid}
+                            onClick={() => requestMatch(tid)}
+                            className="w-full bg-[#9B7250] hover:bg-[#8B6B5D] text-white h-10 rounded-xl text-[14px] font-medium disabled:opacity-100 disabled:bg-emerald-600"
+                          >
+                            {matched ? (
+                              <><Check className="h-4 w-4 mr-1.5" /> Match request sent</>
+                            ) : requestingMatchId === tid ? (
+                              <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Sending…</>
+                            ) : (
+                              <>Match with this therapist</>
+                            )}
+                          </Button>
+                          <Link href={`/therapists/${tid}`}>
+                            <Button variant="outline" className="w-full border-[#E8E1D7] text-[#2D2626] h-10 rounded-xl text-[14px] font-medium">
+                              View Profile
+                            </Button>
+                          </Link>
+                        </div>
+                      );
+                    })()}
                   </>
                 ) : (
                   <div className="text-center py-4">

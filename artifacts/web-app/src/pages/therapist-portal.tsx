@@ -3,7 +3,7 @@ import { Link, Redirect } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, User, Search, Plus, Calendar, Filter, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Video } from "lucide-react";
+import { Loader2, User, Search, Plus, Calendar, Filter, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Video, Inbox, ClipboardCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +25,103 @@ type SessionEntry = {
   biometrics: any[];
 };
 
+type ScreenerScore = {
+  score: number;
+  maxScore: number;
+  severity: string;
+  rationale?: string;
+  approvedAt?: string | null;
+} | null;
+
+type IncomingMatch = {
+  match: {
+    id: number;
+    patientId: number;
+    therapistId: number;
+    sessionId: number;
+    status: "pending" | "accepted" | "declined";
+    message: string | null;
+    createdAt: string;
+  };
+  patient: { id: number; name: string } | null;
+  session: {
+    id: number;
+    startedAt: string;
+    clinicalBrief: any | null;
+    phq9: ScreenerScore;
+    gad7: ScreenerScore;
+  } | null;
+};
+
+function ScreenerCard({
+  label,
+  score,
+  approved,
+  loading,
+  onApprove,
+}: {
+  label: string;
+  score: ScreenerScore;
+  approved: boolean;
+  loading: boolean;
+  onApprove: () => void;
+}) {
+  if (!score) {
+    return (
+      <div className="rounded-xl border border-[#E8E1D7] bg-[#FAFAF9] p-3">
+        <p className="text-[11px] font-medium text-[#5C544F]">{label}</p>
+        <p className="text-xs text-[#A09890] mt-1">Not scored yet</p>
+      </div>
+    );
+  }
+  return (
+    <div className={`rounded-xl border p-3 ${approved ? "border-emerald-200 bg-emerald-50/40" : "border-[#E8E1D7] bg-white"}`}>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[11px] font-medium text-[#5C544F]">{label}</p>
+        <p className="font-serif text-lg text-[#2D2626] leading-none">
+          {score.score}
+          <span className="text-[10px] font-sans text-[#A09890]">/{score.maxScore}</span>
+        </p>
+      </div>
+      <p className="text-[11px] text-[#5C544F] mb-2">{score.severity}</p>
+      <Button
+        size="sm"
+        variant={approved ? "outline" : "default"}
+        disabled={loading}
+        onClick={onApprove}
+        className={`w-full h-7 text-[11px] rounded-md ${
+          approved
+            ? "border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50"
+            : "bg-[#2D2626] hover:bg-black text-white"
+        }`}
+      >
+        {loading ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : approved ? (
+          <><CheckCircle2 className="h-3 w-3 mr-1" /> Approved</>
+        ) : (
+          <><ClipboardCheck className="h-3 w-3 mr-1" /> Approve</>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 export default function TherapistPortal() {
   const { isSignedIn, isLoaded } = useAuth();
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const [entries, setEntries] = useState<SessionEntry[]>([]);
   const [therapistName, setTherapistName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [incomingMatches, setIncomingMatches] = useState<IncomingMatch[]>([]);
+  const [pendingApproval, setPendingApproval] = useState<string | null>(null);
+
+  const refreshMatches = () => {
+    fetch("/api/therapist/my-matches", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { matches: [] }))
+      .then((data) => setIncomingMatches(data.matches ?? []))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -42,7 +133,27 @@ export default function TherapistPortal() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    refreshMatches();
   }, [isSignedIn]);
+
+  const updateMatch = async (
+    matchId: number,
+    body: { phq9Approved?: boolean; gad7Approved?: boolean; status?: "accepted" | "declined" },
+    key: string,
+  ) => {
+    setPendingApproval(key);
+    try {
+      const res = await fetch(`/api/therapist/matches/${matchId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) refreshMatches();
+    } finally {
+      setPendingApproval(null);
+    }
+  };
 
   if (!isLoaded || userLoading || loading) {
     return (
@@ -127,6 +238,139 @@ export default function TherapistPortal() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Incoming Patient Matches */}
+        {incomingMatches.length > 0 && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Inbox className="h-5 w-5 text-[#9B7250]" />
+              <h2 className="font-serif text-2xl font-medium text-[#2D2626]">Incoming patient matches</h2>
+              <span className="ml-2 inline-flex items-center rounded-full bg-[#F5EFE6] px-2.5 py-0.5 text-[11px] font-medium text-[#9B7250] border border-[#E8E1D7]">
+                {incomingMatches.filter((m) => m.match.status === "pending").length} pending
+              </span>
+            </div>
+            <div className="grid gap-4">
+              {incomingMatches.map((entry) => {
+                const m = entry.match;
+                const sess = entry.session;
+                const brief = sess?.clinicalBrief;
+                const phq9 = sess?.phq9 ?? null;
+                const gad7 = sess?.gad7 ?? null;
+                const phq9Approved = !!phq9?.approvedAt;
+                const gad7Approved = !!gad7?.approvedAt;
+                return (
+                  <div key={m.id} className="bg-white rounded-2xl border border-[#E8E1D7] shadow-sm overflow-hidden">
+                    <div className="p-5 flex items-start justify-between gap-4 border-b border-[#E8E1D7] bg-[#FAFAF9]">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-12 w-12 border border-[#E8E1D7]">
+                          <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${entry.patient?.name ?? 'Patient'}&backgroundColor=f0e6e6&textColor=2d2626`} />
+                          <AvatarFallback>{entry.patient?.name?.charAt(0) ?? 'P'}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h3 className="font-medium text-[#2D2626] text-[16px]">{entry.patient?.name ?? "Anonymous patient"}</h3>
+                          <p className="text-xs text-[#5C544F]">
+                            Match requested {new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {brief?.clinicalProfile && (
+                              <> · <span className="capitalize">{String(brief.clinicalProfile).replace(/-/g, " ")}</span></>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${
+                            m.status === "accepted"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : m.status === "declined"
+                              ? "bg-red-50 text-red-700 border-red-100"
+                              : "bg-amber-50 text-amber-700 border-amber-100"
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-5 grid md:grid-cols-3 gap-5">
+                      {/* Brief preview */}
+                      <div className="md:col-span-2 space-y-3">
+                        <p className="text-[10px] uppercase tracking-wider font-mono text-[#5C544F]">Intake brief</p>
+                        {brief ? (
+                          <>
+                            <div>
+                              <p className="text-[11px] font-medium text-[#5C544F] mb-1">Subjective</p>
+                              <p className="text-sm text-[#2D2626] leading-relaxed line-clamp-4">{brief.subjective}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-medium text-[#5C544F] mb-1">Assessment</p>
+                              <p className="text-sm text-[#2D2626] leading-relaxed line-clamp-3">{brief.assessment}</p>
+                            </div>
+                            <Link href={`/therapist-portal/sessions/${m.sessionId}`} className="inline-block">
+                              <Button variant="outline" size="sm" className="rounded-lg border-[#E8E1D7] text-[#2D2626] mt-1">
+                                Open full brief <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                              </Button>
+                            </Link>
+                          </>
+                        ) : (
+                          <p className="text-sm text-[#5C544F]">Brief not yet available.</p>
+                        )}
+                      </div>
+
+                      {/* Screeners */}
+                      <div className="space-y-3">
+                        <p className="text-[10px] uppercase tracking-wider font-mono text-[#5C544F]">Screeners</p>
+                        <ScreenerCard
+                          label="PHQ-9"
+                          score={phq9}
+                          approved={phq9Approved}
+                          loading={pendingApproval === `phq9-${m.id}`}
+                          onApprove={() =>
+                            updateMatch(m.id, { phq9Approved: !phq9Approved }, `phq9-${m.id}`)
+                          }
+                        />
+                        <ScreenerCard
+                          label="GAD-7"
+                          score={gad7}
+                          approved={gad7Approved}
+                          loading={pendingApproval === `gad7-${m.id}`}
+                          onApprove={() =>
+                            updateMatch(m.id, { gad7Approved: !gad7Approved }, `gad7-${m.id}`)
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {m.status === "pending" && (
+                      <div className="px-5 pb-5 flex gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg border-[#E8E1D7] text-[#5C544F]"
+                          disabled={pendingApproval === `decline-${m.id}`}
+                          onClick={() => updateMatch(m.id, { status: "declined" }, `decline-${m.id}`)}
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="rounded-lg bg-[#9B7250] hover:bg-[#8B6B5D] text-white"
+                          disabled={pendingApproval === `accept-${m.id}`}
+                          onClick={() => updateMatch(m.id, { status: "accepted" }, `accept-${m.id}`)}
+                        >
+                          {pendingApproval === `accept-${m.id}` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>Accept patient</>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Patient List */}
         <div className="flex flex-col gap-6">

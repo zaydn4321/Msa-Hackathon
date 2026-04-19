@@ -7,6 +7,7 @@ import tavusRouter from "./tavus";
 import authRouter from "./auth";
 import therapistPortalRouter from "./therapistPortal";
 import devRoleSwitchRouter from "./devRoleSwitch";
+import matchesRouter from "./matches";
 
 const router: IRouter = Router();
 
@@ -14,6 +15,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(devRoleSwitchRouter);
 router.use(therapistPortalRouter);
+router.use(matchesRouter);
 router.use(sessionsRouter);
 router.use(conversationRouter);
 router.use(tavusRouter);

@@ -9,7 +9,7 @@ import {
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { verifySessionAccess } from "../lib/sessionAccess";
-import type { BiometricReading } from "@workspace/db";
+import type { BiometricReading, ScreenerScoreType } from "@workspace/db";
 import {
   AddBiometricsBody,
   AddBiometricsParams,
@@ -72,15 +72,86 @@ type CachedAssignment = {
     clinicalProfile?: string;
   };
   assignedTherapistId: number | null;
+  phq9?: ScreenerScoreType | null;
+  gad7?: ScreenerScoreType | null;
 };
 
 const sessionBriefCache = new Map<number, CachedAssignment>();
+
+type GeneratedClinicalArtifacts = {
+  brief: CachedAssignment["brief"];
+  phq9: ScreenerScoreType | null;
+  gad7: ScreenerScoreType | null;
+};
+
+const PHQ9_PROMPTS = [
+  "Little interest or pleasure in doing things",
+  "Feeling down, depressed, or hopeless",
+  "Trouble falling/staying asleep, or sleeping too much",
+  "Feeling tired or having little energy",
+  "Poor appetite or overeating",
+  "Feeling bad about yourself — or that you are a failure",
+  "Trouble concentrating on things",
+  "Moving/speaking noticeably slowly, or being fidgety/restless",
+  "Thoughts that you would be better off dead, or of hurting yourself",
+];
+const GAD7_PROMPTS = [
+  "Feeling nervous, anxious, or on edge",
+  "Not being able to stop or control worrying",
+  "Worrying too much about different things",
+  "Trouble relaxing",
+  "Being so restless it is hard to sit still",
+  "Becoming easily annoyed or irritable",
+  "Feeling afraid as if something awful might happen",
+];
+
+function phq9Severity(score: number): string {
+  if (score >= 20) return "Severe";
+  if (score >= 15) return "Moderately severe";
+  if (score >= 10) return "Moderate";
+  if (score >= 5) return "Mild";
+  return "Minimal";
+}
+function gad7Severity(score: number): string {
+  if (score >= 15) return "Severe";
+  if (score >= 10) return "Moderate";
+  if (score >= 5) return "Mild";
+  return "Minimal";
+}
+
+function normalizeScreener(
+  raw: unknown,
+  prompts: string[],
+  severityFn: (n: number) => string,
+): ScreenerScoreType | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const itemsRaw = Array.isArray(obj.items) ? obj.items : [];
+  const items = prompts.map((prompt, i) => {
+    const it = (itemsRaw[i] as Record<string, unknown> | undefined) ?? {};
+    const rawScore = Number(it.score);
+    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(3, Math.round(rawScore))) : 0;
+    const evidence = typeof it.evidence === "string" ? it.evidence : undefined;
+    return { prompt, score, evidence };
+  });
+  const total = items.reduce((s, it) => s + it.score, 0);
+  const rationale = typeof obj.rationale === "string" ? obj.rationale : "";
+  return {
+    score: total,
+    maxScore: prompts.length * 3,
+    severity: severityFn(total),
+    rationale,
+    items,
+    approvedAt: null,
+    approvedBy: null,
+  };
+}
 
 async function generateClinicalBrief(
   sessionId: number,
   transcript: string,
   biometrics: BiometricReading[]
-): Promise<CachedAssignment["brief"]> {
+): Promise<GeneratedClinicalArtifacts> {
   const segments = transcript
     .split(/\n+/)
     .filter(Boolean)
@@ -127,6 +198,9 @@ async function generateClinicalBrief(
     ? "Route to assigned therapist for full review of session transcript and biometric data prior to first appointment."
     : "Re-attempt intake session, or schedule a live clinician-led interview. Verify Tavus conversation capture and OpenAI summarization pipeline are operating.";
 
+  let phq9: ScreenerScoreType | null = null;
+  let gad7: ScreenerScoreType | null = null;
+
   if (openai && hasTranscript) {
     const biometricSummary = averageHr
       ? `Average HR ${averageHr.toFixed(0)} bpm (peak ${peakHr?.toFixed(0)} bpm), average HRV ${averageHrv?.toFixed(0) ?? "N/A"} ms, ${subtextEvents.length} sympathetic activation moment(s) correlated to transcript content.`
@@ -156,6 +230,15 @@ Output a JSON object with exactly these keys:
 
 - "plan": A 3–6 sentence concrete next-step plan (80–180 words). Include: recommended modality and frequency of therapy, any indicated assessments or referrals (psychiatric eval, PCP, labs, screeners like PHQ-9 / GAD-7 / PCL-5), safety planning if relevant, between-session interventions or psychoeducation, and the cadence for reviewing progress.
 
+- "phq9": A PHQ-9 estimate inferred from the transcript. Object with:
+  - "items": exactly 9 entries in standard PHQ-9 order (interest/pleasure, depressed mood, sleep, energy, appetite, self-worth, concentration, psychomotor, suicidal ideation). Each entry: { "score": 0|1|2|3 (0=not at all, 1=several days, 2=more than half the days, 3=nearly every day), "evidence": short quoted phrase or paraphrase from the transcript, or "" if not directly addressed }
+  - "rationale": 1–2 sentence clinician-style note explaining the overall pattern. Be conservative when the item wasn't actually discussed — score 0 and note "not directly assessed."
+- "gad7": A GAD-7 estimate inferred from the transcript. Object with:
+  - "items": exactly 7 entries in standard GAD-7 order (nervous/anxious, can't stop worrying, worrying too much, trouble relaxing, restless, easily irritable, afraid something awful). Each entry same shape as PHQ-9 items.
+  - "rationale": 1–2 sentence note. Same conservative scoring rule.
+
+These are clinician-decision-support estimates. Only score items the transcript actually supports; score 0 (with empty/short evidence) for items not addressed.
+
 CONTEXT FOR THIS SESSION
 ${biometricSummary}
 ${profileHint}
@@ -183,6 +266,8 @@ Return ONLY a single valid JSON object. No prose, no markdown fences, no explana
         if (typeof parsed.plan === "string" && parsed.plan.trim().length > 0) {
           plan = parsed.plan.trim();
         }
+        phq9 = normalizeScreener(parsed.phq9, PHQ9_PROMPTS, phq9Severity);
+        gad7 = normalizeScreener(parsed.gad7, GAD7_PROMPTS, gad7Severity);
       } else {
         console.warn(`[brief] OpenAI returned empty content for session ${sessionId}`);
       }
@@ -196,19 +281,23 @@ Return ONLY a single valid JSON object. No prose, no markdown fences, no explana
   }
 
   return {
-    sessionId,
-    generatedAt: new Date(),
-    subjective,
-    objective: {
-      averageHr: averageHr ? Math.round(averageHr * 10) / 10 : null,
-      averageHrv: averageHrv ? Math.round(averageHrv * 10) / 10 : null,
-      peakHr: peakHr ?? null,
-      readingCount: biometrics.length,
-      biometricSubtextEvents: subtextEvents,
+    brief: {
+      sessionId,
+      generatedAt: new Date(),
+      subjective,
+      objective: {
+        averageHr: averageHr ? Math.round(averageHr * 10) / 10 : null,
+        averageHrv: averageHrv ? Math.round(averageHrv * 10) / 10 : null,
+        peakHr: peakHr ?? null,
+        readingCount: biometrics.length,
+        biometricSubtextEvents: subtextEvents,
+      },
+      assessment,
+      plan,
+      clinicalProfile: profileInference?.slug ?? undefined,
     },
-    assessment,
-    plan,
-    clinicalProfile: profileInference?.slug ?? undefined,
+    phq9,
+    gad7,
   };
 }
 
@@ -316,11 +405,25 @@ async function buildAndPersistBrief(
     .where(eq(biometricReadingsTable.sessionId, sessionId))
     .orderBy(asc(biometricReadingsTable.recordedAt));
 
-  const brief = await generateClinicalBrief(sessionId, transcript, biometrics);
+  const { brief, phq9, gad7 } = await generateClinicalBrief(sessionId, transcript, biometrics);
 
   const therapists = await ensureTherapistsProvisioned();
   const profileSlug = brief.clinicalProfile ?? "anxiety";
   const [assignedTherapist] = assignTherapistForProfile(therapists, profileSlug, 1);
+
+  // Preserve previous approval timestamps if they exist (re-generation should
+  // not silently un-approve a clinician-approved screener).
+  const [existing] = await db
+    .select({ phq9: intakeSessionsTable.phq9, gad7: intakeSessionsTable.gad7 })
+    .from(intakeSessionsTable)
+    .where(eq(intakeSessionsTable.id, sessionId));
+
+  const mergedPhq9 = phq9
+    ? { ...phq9, approvedAt: existing?.phq9?.approvedAt ?? null, approvedBy: existing?.phq9?.approvedBy ?? null }
+    : existing?.phq9 ?? null;
+  const mergedGad7 = gad7
+    ? { ...gad7, approvedAt: existing?.gad7?.approvedAt ?? null, approvedBy: existing?.gad7?.approvedBy ?? null }
+    : existing?.gad7 ?? null;
 
   const [updated] = await db
     .update(intakeSessionsTable)
@@ -328,6 +431,8 @@ async function buildAndPersistBrief(
       endedAt: options.endTavus ? new Date() : undefined,
       clinicalBrief: brief,
       assignedTherapistId: assignedTherapist?.therapist.id ?? null,
+      phq9: mergedPhq9,
+      gad7: mergedGad7,
     })
     .where(eq(intakeSessionsTable.id, sessionId))
     .returning();
@@ -341,6 +446,8 @@ async function buildAndPersistBrief(
     },
     brief,
     assignedTherapistId: assignedTherapist?.therapist.id ?? null,
+    phq9: mergedPhq9,
+    gad7: mergedGad7,
   });
 
   return { brief, updated, assignedTherapistId: assignedTherapist?.therapist.id ?? null, transcriptOk };

@@ -4,3 +4,4 @@ export * from "./therapists";
 export * from "./patients";
 export * from "./conversations";
 export * from "./messages";
+export * from "./matches";

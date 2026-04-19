@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, patientsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureTherapistsProvisioned } from "./ensureTherapists";
+import { seedSpecialTherapists } from "./seedSpecialTherapists";
 
 const demoPatients = [
   {
@@ -24,6 +25,7 @@ const demoPatients = [
 
 export async function bootstrapDemoData() {
   const therapists = await ensureTherapistsProvisioned();
+  await seedSpecialTherapists();
 
   for (const patient of demoPatients) {
     const [existing] = await db
