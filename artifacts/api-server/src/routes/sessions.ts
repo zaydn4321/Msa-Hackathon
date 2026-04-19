@@ -140,7 +140,7 @@ async function generateClinicalBrief(
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -167,8 +167,7 @@ Return ONLY a single valid JSON object. No prose, no markdown fences, no explana
             content: `Verbatim intake transcript follows. Speaker labels may be present.\n\n----- BEGIN TRANSCRIPT -----\n${transcriptSlice}\n----- END TRANSCRIPT -----`,
           },
         ],
-        temperature: 0.2,
-        max_tokens: 1800,
+        max_completion_tokens: 8192,
         response_format: { type: "json_object" },
       });
 
@@ -301,18 +300,29 @@ router.patch("/sessions/:sessionId/end", requireAuth, async (req, res): Promise<
 
   let transcript = "";
   if (conversation?.externalId) {
-    // Tavus often needs 10–30s after a conversation ends before the transcript
-    // is finalized. Poll a few times with backoff, but keep the total budget
-    // bounded so we don't exceed request timeouts at proxies/clients (~25s).
-    const delaysMs = [0, 3000, 6000, 10000];
+    // Tavus only finalizes the transcript AFTER the conversation is ended.
+    // First tell Tavus to end the conversation, then poll for the transcript.
+    if (process.env.TAVUS_API_KEY) {
+      try {
+        await fetch(`https://tavusapi.com/v2/conversations/${conversation.externalId}/end`, {
+          method: "POST",
+          headers: { "x-api-key": process.env.TAVUS_API_KEY },
+        });
+      } catch (err) {
+        console.warn(`[brief] Failed to end Tavus conversation ${conversation.externalId}:`, err);
+      }
+    }
+
+    // Poll with bounded budget so we don't exceed proxy/client timeouts.
+    const delaysMs = [1500, 3000, 5000, 8000];
     for (const delay of delaysMs) {
-      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+      await new Promise((r) => setTimeout(r, delay));
       transcript = await fetchTavusTranscript(conversation.externalId);
       if (transcript && transcript.trim().length > 20) break;
     }
     if (!transcript || transcript.trim().length <= 20) {
       console.warn(
-        `[brief] Tavus transcript still insufficient after retries for session ${sessionId} (conversation ${conversation.externalId}) — will try local messages`
+        `[brief] Tavus transcript still insufficient after end+retries for session ${sessionId} (conversation ${conversation.externalId}) — will try local messages`
       );
     }
   }

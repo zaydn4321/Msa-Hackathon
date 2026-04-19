@@ -151,9 +151,34 @@ export default function IntakeBrief() {
                   <div>
                     <h4 className="font-medium text-[#2D2626] mb-2 uppercase tracking-wider text-[10px] font-mono">Objective</h4>
                     <p className="text-[14px] text-[#2D2626] leading-relaxed whitespace-pre-wrap mb-4">
-                      Patient appeared mildly restless but cooperative. Speech pattern showed elevated tremor during discussion of stressors. Biometric telemetry indicated elevated HR correlating with subjective reports of anxiety.
+                      {(() => {
+                        const o = brief.objective;
+                        const parts: string[] = [];
+                        if (o?.readingCount) {
+                          parts.push(
+                            `Captured ${o.readingCount} biometric reading${o.readingCount === 1 ? "" : "s"} during the session.`
+                          );
+                        }
+                        if (o?.averageHr != null) {
+                          parts.push(
+                            `Average heart rate ${Math.round(o.averageHr)} bpm${o.peakHr != null ? ` (peak ${Math.round(o.peakHr)} bpm)` : ""}.`
+                          );
+                        }
+                        if (o?.averageHrv != null) {
+                          parts.push(`Average HRV ${Math.round(o.averageHrv)} ms.`);
+                        }
+                        const events = o?.biometricSubtextEvents?.length ?? 0;
+                        if (events > 0) {
+                          parts.push(
+                            `${events} sympathetic activation moment${events === 1 ? "" : "s"} correlated to transcript content.`
+                          );
+                        }
+                        return parts.length > 0
+                          ? parts.join(" ")
+                          : "No biometric telemetry was captured for this session.";
+                      })()}
                     </p>
-                    
+
                     {brief.objective?.biometricSubtextEvents && brief.objective.biometricSubtextEvents.length > 0 && (
                       <div className="mt-4 space-y-3 bg-[#FAFAF9] border border-[#E8E1D7] rounded-xl p-4">
                         <p className="text-[11px] font-medium text-[#5C544F] uppercase tracking-wider mb-2">Physiological Cues</p>
