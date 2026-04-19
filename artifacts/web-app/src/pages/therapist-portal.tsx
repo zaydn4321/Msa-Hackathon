@@ -3,7 +3,7 @@ import { Link, Redirect } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, User, Search, Plus, Calendar, Filter, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Video, Inbox, ClipboardCheck } from "lucide-react";
+import { Loader2, User, Search, Plus, Activity, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Inbox, ClipboardCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,11 +115,24 @@ export default function TherapistPortal() {
   const [loading, setLoading] = useState(true);
   const [incomingMatches, setIncomingMatches] = useState<IncomingMatch[]>([]);
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
+  const [stats, setStats] = useState<{
+    totalPatients: number;
+    highPriority: number;
+    pendingIntakes: number;
+    priorityAlerts: number;
+    sessionVolumeSeries: { date: string; count: number }[];
+    checklist: { id: string; label: string; due: "today" | "tomorrow" | "later"; href?: string }[];
+    recentMatches: { id: number; patientName: string; status: string; createdAt: string; sessionId: number }[];
+  } | null>(null);
 
   const refreshMatches = () => {
     fetch("/api/therapist/my-matches", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { matches: [] }))
       .then((data) => setIncomingMatches(data.matches ?? []))
+      .catch(() => {});
+    fetch("/api/therapist/dashboard-stats", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setStats(data))
       .catch(() => {});
   };
 
@@ -178,7 +191,11 @@ export default function TherapistPortal() {
               Welcome back, Dr. {lastName}.
             </h1>
             <p className="text-[#5C544F] mt-1 flex items-center gap-1.5">
-              You have <span className="font-medium text-[#9B7250]">3 priority alerts</span> today.
+              {stats && stats.priorityAlerts > 0 ? (
+                <>You have <span className="font-medium text-[#9B7250]">{stats.priorityAlerts} priority alert{stats.priorityAlerts === 1 ? "" : "s"}</span> today.</>
+              ) : (
+                <>You're all caught up today.</>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -199,21 +216,18 @@ export default function TherapistPortal() {
             <CardContent className="p-5 flex flex-col justify-between h-full">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Total Patients</span>
-                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +12%
-                </span>
+                <TrendingUp className="h-4 w-4 text-[#9B7250]" />
               </div>
-              <p className="font-serif text-[2.5rem] font-medium text-[#2D2626] leading-none">148</p>
+              <p className="font-serif text-[2.5rem] font-medium text-[#2D2626] leading-none">{stats?.totalPatients ?? 0}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border border-border/50 shadow-sm bg-[#FFF8F8] border-red-100">
+          <Card className={`rounded-2xl border shadow-sm ${(stats?.highPriority ?? 0) > 0 ? "border-red-100 bg-[#FFF8F8]" : "border-border/50"}`}>
             <CardContent className="p-5 flex flex-col justify-between h-full">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-medium text-red-900/70 uppercase tracking-wider">High Priority</span>
-                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <span className={`text-xs font-medium uppercase tracking-wider ${(stats?.highPriority ?? 0) > 0 ? "text-red-900/70" : "text-[#5C544F]"}`}>High Priority</span>
+                <AlertTriangle className={`h-4 w-4 ${(stats?.highPriority ?? 0) > 0 ? "text-red-500" : "text-[#A09890]"}`} />
               </div>
-              <p className="font-serif text-[2.5rem] font-medium text-red-700 leading-none">12</p>
+              <p className={`font-serif text-[2.5rem] font-medium leading-none ${(stats?.highPriority ?? 0) > 0 ? "text-red-700" : "text-[#2D2626]"}`}>{stats?.highPriority ?? 0}</p>
             </CardContent>
           </Card>
           <Card className="rounded-2xl border border-border/50 shadow-sm">
@@ -222,18 +236,27 @@ export default function TherapistPortal() {
                 <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Pending Intakes</span>
                 <FileText className="h-4 w-4 text-[#9B7250]" />
               </div>
-              <p className="font-serif text-[2.5rem] font-medium text-[#2D2626] leading-none">4</p>
+              <p className="font-serif text-[2.5rem] font-medium text-[#2D2626] leading-none">{stats?.pendingIntakes ?? 0}</p>
             </CardContent>
           </Card>
           <Card className="rounded-2xl border border-border/50 shadow-sm">
             <CardContent className="p-5 flex flex-col justify-between h-full">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Session Volume</span>
+                <span className="text-xs font-medium text-[#5C544F] uppercase tracking-wider">Match Volume · 7d</span>
               </div>
               <div className="mt-auto">
-                <svg viewBox="0 0 100 30" className="w-full h-10 text-[#9B7250]" preserveAspectRatio="none">
-                  <path d="M0,30 L10,25 L20,28 L30,15 L40,20 L50,10 L60,18 L70,5 L80,12 L90,2 L100,8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                </svg>
+                {(() => {
+                  const series = stats?.sessionVolumeSeries ?? [];
+                  const max = Math.max(1, ...series.map((p) => p.count));
+                  const points = series.length > 0
+                    ? series.map((p, i) => `${(i / Math.max(1, series.length - 1)) * 100},${30 - (p.count / max) * 28}`).join(" L")
+                    : "0,30 L100,30";
+                  return (
+                    <svg viewBox="0 0 100 30" className="w-full h-10 text-[#9B7250]" preserveAspectRatio="none">
+                      <path d={`M${points}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                    </svg>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -458,67 +481,71 @@ export default function TherapistPortal() {
         <Card className="rounded-2xl border border-border/50 shadow-sm overflow-hidden">
           <div className="bg-[#FAFAF9] border-b border-[#E8E1D7] px-5 py-4 flex items-center justify-between">
             <h3 className="font-medium text-[#2D2626]">Checklist</h3>
-            <span className="text-xs font-medium bg-[#F5EFE6] text-[#9B7250] px-2 py-0.5 rounded-full">4 pending</span>
+            <span className="text-xs font-medium bg-[#F5EFE6] text-[#9B7250] px-2 py-0.5 rounded-full">
+              {(stats?.checklist?.length ?? 0)} pending
+            </span>
           </div>
           <CardContent className="p-0">
-            <div className="divide-y divide-[#E8E1D7]">
-              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
-                <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">Review new intake: Michael R.</p>
-                  <span className="text-[10px] font-bold uppercase text-red-600">Due Today</span>
-                </div>
+            {stats && stats.checklist.length > 0 ? (
+              <div className="divide-y divide-[#E8E1D7]">
+                {stats.checklist.slice(0, 6).map((item) => {
+                  const dueLabel = item.due === "today" ? "Due Today" : item.due === "tomorrow" ? "Tomorrow" : "Later";
+                  const dueColor = item.due === "today" ? "text-red-600" : "text-[#9B7250]";
+                  const inner = (
+                    <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
+                      <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">{item.label}</p>
+                        <span className={`text-[10px] font-bold uppercase ${dueColor}`}>{dueLabel}</span>
+                      </div>
+                    </div>
+                  );
+                  return item.href ? (
+                    <Link key={item.id} href={item.href}>{inner}</Link>
+                  ) : (
+                    <div key={item.id}>{inner}</div>
+                  );
+                })}
               </div>
-              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
-                <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">Finalize notes for Sarah T.</p>
-                  <span className="text-[10px] font-bold uppercase text-red-600">Due Today</span>
-                </div>
+            ) : (
+              <div className="p-8 text-center">
+                <CheckCircle2 className="h-8 w-8 text-emerald-500/60 mx-auto mb-2" />
+                <p className="text-sm text-[#5C544F]">Nothing on your list right now.</p>
               </div>
-              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer flex items-start gap-3">
-                <div className="h-5 w-5 rounded border border-[#D5CFC6] mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-[#2D2626] leading-tight mb-1">Sign treatment plan for David L.</p>
-                  <span className="text-[10px] font-bold uppercase text-[#9B7250]">Tomorrow</span>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl border border-border/50 shadow-sm overflow-hidden">
           <div className="bg-[#FAFAF9] border-b border-[#E8E1D7] px-5 py-4 flex items-center justify-between">
-            <h3 className="font-medium text-[#2D2626]">Upcoming</h3>
-            <Calendar className="h-4 w-4 text-[#5C544F]" />
+            <h3 className="font-medium text-[#2D2626]">Recent activity</h3>
+            <Activity className="h-4 w-4 text-[#5C544F]" />
           </div>
           <CardContent className="p-0">
-            <div className="divide-y divide-[#E8E1D7]">
-              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
-                <p className="text-xs font-medium text-[#9B7250] mb-1">10:00 AM - 10:50 AM</p>
-                <div className="flex items-center justify-between">
-                  <p className="text-[14px] font-medium text-[#2D2626]">Elena M. (Session 4)</p>
-                  <Video className="h-4 w-4 text-[#5C544F]" />
-                </div>
+            {stats && stats.recentMatches.length > 0 ? (
+              <div className="divide-y divide-[#E8E1D7]">
+                {stats.recentMatches.map((m) => {
+                  const dot =
+                    m.status === "accepted" ? "bg-emerald-500" :
+                    m.status === "declined" ? "bg-red-400" : "bg-amber-500";
+                  return (
+                    <Link key={m.id} href={`/therapist-portal/sessions/${m.sessionId}`}>
+                      <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
+                        <p className="text-xs font-medium text-[#9B7250] mb-1">
+                          {new Date(m.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[14px] font-medium text-[#2D2626]">{m.patientName} <span className="text-[#5C544F] font-normal">· match {m.status}</span></p>
+                          <span className={`h-2 w-2 rounded-full ${dot}`} />
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
-              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
-                <p className="text-xs font-medium text-[#9B7250] mb-1">11:30 AM - 12:20 PM</p>
-                <div className="flex items-center justify-between">
-                  <p className="text-[14px] font-medium text-[#2D2626]">Marcus C. (Intake Review)</p>
-                  <Video className="h-4 w-4 text-[#5C544F]" />
-                </div>
-              </div>
-              <div className="p-4 hover:bg-black/5 transition-colors cursor-pointer">
-                <p className="text-xs font-medium text-[#9B7250] mb-1">2:00 PM - 2:50 PM</p>
-                <div className="flex items-center justify-between">
-                  <p className="text-[14px] font-medium text-[#2D2626]">Jennifer P. (Session 12)</p>
-                  <Video className="h-4 w-4 text-[#5C544F]" />
-                </div>
-              </div>
-            </div>
-            <div className="p-3 border-t border-[#E8E1D7]">
-              <Button variant="ghost" className="w-full text-xs font-medium text-[#5C544F]">View Full Schedule</Button>
-            </div>
+            ) : (
+              <div className="p-8 text-center text-sm text-[#5C544F]">No recent match activity.</div>
+            )}
           </CardContent>
         </Card>
       </div>
