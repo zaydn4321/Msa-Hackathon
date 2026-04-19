@@ -1,30 +1,127 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useGetTherapist, getGetTherapistQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, MapPin, Calendar, Award, GraduationCap, ChevronLeft, CheckCircle2,
+  Loader2, MapPin, Calendar, Award, GraduationCap, ChevronLeft, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+type Session = { id: number; label: string | null; startedAt: string; endedAt: string | null };
+type Match = { id: number; therapistId: number; sessionId: number; status: string };
 
 export default function TherapistDetail() {
   const params = useParams();
   const therapistId = Number(params.therapistId);
   const [location] = useLocation();
-  const [requested, setRequested] = useState(false);
+  const { isSignedIn } = useAuth();
+  const { data: currentUser } = useCurrentUser();
+  const isPatient = currentUser?.role === "patient";
+
+  const [requestState, setRequestState] = useState<
+    | { status: "idle" }
+    | { status: "submitting" }
+    | { status: "success"; sessionId: number; alreadyExisted: boolean }
+    | { status: "error"; message: string }
+  >({ status: "idle" });
 
   const { data: therapist, isLoading, error } = useGetTherapist(therapistId, {
     query: { queryKey: getGetTherapistQueryKey(therapistId), enabled: !!therapistId },
   });
 
+  // Patient context: sessions + existing matches so we can pick a session to
+  // attach this match to and show "already requested".
+  const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [matches, setMatches] = useState<Match[] | null>(null);
+
+  useEffect(() => {
+    if (!isSignedIn || !isPatient) return;
+    fetch("/api/patient/my-sessions", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setSessions(Array.isArray(d) ? d : []))
+      .catch(() => setSessions([]));
+    fetch("/api/patient/my-matches", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setMatches(Array.isArray(d?.matches) ? d.matches : []))
+      .catch(() => setMatches([]));
+  }, [isSignedIn, isPatient]);
+
+  // Pick the session this match should attach to: the most recent completed
+  // intake (or most recent in-progress as fallback).
+  const targetSessionId = useMemo<number | null>(() => {
+    if (!sessions) return null;
+    const completed = sessions
+      .filter((s) => s.endedAt)
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+    if (completed[0]) return completed[0].id;
+    const any = [...sessions].sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+    );
+    return any[0]?.id ?? null;
+  }, [sessions]);
+
+  const existingMatch = useMemo(() => {
+    if (!matches) return null;
+    return matches.find((m) => m.therapistId === therapistId) ?? null;
+  }, [matches, therapistId]);
+
+  // Auto-trigger from `?request=1` (e.g. from results page) once data is ready.
+  // useRef guard prevents the effect from firing twice if React re-renders
+  // before setState commits the "submitting" status.
+  const autoTriggeredRef = useRef(false);
   useEffect(() => {
     const search = typeof window !== "undefined" ? window.location.search : "";
-    if (search.includes("request=1")) {
-      setRequested(true);
+    if (
+      !autoTriggeredRef.current &&
+      search.includes("request=1") &&
+      isPatient &&
+      requestState.status === "idle" &&
+      !existingMatch &&
+      targetSessionId
+    ) {
+      autoTriggeredRef.current = true;
+      void submitMatch(targetSessionId);
     }
-  }, [location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, isPatient, existingMatch, targetSessionId]);
+
+  async function submitMatch(sessionId: number) {
+    setRequestState({ status: "submitting" });
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/match`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ therapistId }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `Request failed (${res.status})`);
+      }
+      const data = await res.json();
+      setRequestState({
+        status: "success",
+        sessionId,
+        alreadyExisted: !!data.alreadyExisted,
+      });
+      // Refresh matches so the badge sticks on revisit.
+      fetch("/api/patient/my-matches", { credentials: "include" })
+        .then((r) => r.json())
+        .then((d) => setMatches(Array.isArray(d?.matches) ? d.matches : []))
+        .catch(() => {});
+    } catch (err) {
+      setRequestState({
+        status: "error",
+        message: err instanceof Error ? err.message : "Could not send request",
+      });
+    }
+  }
+
+  const requested =
+    requestState.status === "success" || existingMatch != null;
 
   if (isLoading) {
     return (
@@ -63,10 +160,21 @@ export default function TherapistDetail() {
         <div className="flex items-start gap-3 bg-[#F5EFE6] border border-[#E8E1D7] rounded-xl px-5 py-4">
           <CheckCircle2 className="h-5 w-5 text-[#9B7250] shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-[#2D2626]">Session request sent to {therapist.name}</p>
+            <p className="text-sm font-medium text-[#2D2626]">
+              Session request sent to {therapist.name}
+            </p>
             <p className="text-xs text-[#5C544F] mt-0.5">
               Your intake brief and clinical summary have been shared. Expect a response within 24 hours.
             </p>
+          </div>
+        </div>
+      )}
+      {requestState.status === "error" && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-xl px-5 py-4">
+          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-[#2D2626]">Could not send request</p>
+            <p className="text-xs text-[#5C544F] mt-0.5">{requestState.message}</p>
           </div>
         </div>
       )}
@@ -96,18 +204,49 @@ export default function TherapistDetail() {
                 {therapist.providerProfile.location}
               </div>
 
-              {requested ? (
-                <Button className="w-full rounded-xl bg-white border-[#E8E1D7] text-[#2D2626]" size="default" variant="outline" disabled>
+              {!isSignedIn ? (
+                <Link href="/sign-in" className="w-full">
+                  <Button className="w-full rounded-xl bg-[#9B7250] hover:bg-[#8B6B5D] text-white">
+                    Sign in to request
+                  </Button>
+                </Link>
+              ) : !isPatient ? (
+                <Button
+                  className="w-full rounded-xl bg-white border-[#E8E1D7] text-[#5C544F]"
+                  variant="outline"
+                  disabled
+                >
+                  Patient accounts only
+                </Button>
+              ) : requested ? (
+                <Button
+                  className="w-full rounded-xl bg-white border-[#E8E1D7] text-[#2D2626]"
+                  variant="outline"
+                  disabled
+                >
                   <CheckCircle2 className="h-4 w-4 mr-2 text-[#9B7250]" />
                   Request sent
                 </Button>
+              ) : !targetSessionId ? (
+                <Link href="/intake/new" className="w-full">
+                  <Button className="w-full rounded-xl bg-[#9B7250] hover:bg-[#8B6B5D] text-white">
+                    Start intake to request
+                  </Button>
+                </Link>
               ) : (
                 <Button
                   className="w-full rounded-xl bg-[#9B7250] hover:bg-[#8B6B5D] text-white"
-                  size="default"
-                  onClick={() => setRequested(true)}
+                  onClick={() => submitMatch(targetSessionId)}
+                  disabled={requestState.status === "submitting"}
                 >
-                  Request session
+                  {requestState.status === "submitting" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending request…
+                    </>
+                  ) : (
+                    "Request session"
+                  )}
                 </Button>
               )}
             </CardContent>

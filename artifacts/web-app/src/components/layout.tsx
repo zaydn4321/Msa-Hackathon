@@ -3,11 +3,10 @@ import { cn } from "@/lib/utils";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { useAuth, useUser } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { LogOut, Bell, Search, Home as HomeIcon, LayoutDashboard, Users, Calendar, UserCog, Loader2 } from "lucide-react";
+import { Home as HomeIcon, LayoutDashboard, Users, Calendar, UserCog, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 
 export function MarketingLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -206,23 +205,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-[72px] bg-white border-b border-border/50 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search..." 
-              className="pl-9 bg-muted/30 border-border/50 h-10 rounded-lg text-sm"
-            />
-          </div>
+        <header className="h-[72px] bg-white border-b border-border/50 flex items-center justify-end px-8 sticky top-0 z-30">
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-2 text-[14px] font-medium text-muted-foreground">
               <Calendar className="h-4 w-4" />
               <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
             </div>
-            <button className="relative h-10 w-10 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-destructive border border-white" />
-            </button>
           </div>
         </header>
 
