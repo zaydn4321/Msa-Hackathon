@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, Redirect } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, User, Search, Plus, Activity, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Inbox, ClipboardCheck } from "lucide-react";
+import { Loader2, User, Search, Plus, Activity, FileText, CheckCircle2, ChevronRight, MessageSquare, Download, AlertTriangle, TrendingUp, Inbox, ClipboardCheck, ClipboardList } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { ScreenerRequestModal } from "@/components/screener-request-modal";
+import { ScreenerActivityPanel } from "@/components/screener-activity-panel";
 
 type SessionEntry = {
   session: {
@@ -115,6 +118,10 @@ export default function TherapistPortal() {
   const [loading, setLoading] = useState(true);
   const [incomingMatches, setIncomingMatches] = useState<IncomingMatch[]>([]);
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
+  const [requestModal, setRequestModal] = useState<{ patientId: number; patientName: string } | null>(null);
+  const [activityKey, setActivityKey] = useState(0);
+  const { toast } = useToast();
+  const seenMatchIdsRef = useRef<Set<number> | null>(null);
   const [stats, setStats] = useState<{
     totalPatients: number;
     highPriority: number;
@@ -128,7 +135,23 @@ export default function TherapistPortal() {
   const refreshMatches = () => {
     fetch("/api/therapist/my-matches", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { matches: [] }))
-      .then((data) => setIncomingMatches(data.matches ?? []))
+      .then((data) => {
+        const next: IncomingMatch[] = data.matches ?? [];
+        // Notify on newly-arrived pending matches.
+        if (seenMatchIdsRef.current !== null) {
+          const seen = seenMatchIdsRef.current;
+          for (const entry of next) {
+            if (!seen.has(entry.match.id) && entry.match.status === "pending") {
+              toast({
+                title: "New patient match request",
+                description: `${entry.patient?.name ?? "A patient"} is requesting to connect.`,
+              });
+            }
+          }
+        }
+        seenMatchIdsRef.current = new Set(next.map((m) => m.match.id));
+        setIncomingMatches(next);
+      })
       .catch(() => {});
     fetch("/api/therapist/dashboard-stats", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -473,10 +496,28 @@ export default function TherapistPortal() {
                         Open Brief
                       </Button>
                     </Link>
+                    {entry.patient && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setRequestModal({
+                            patientId: entry.patient!.id,
+                            patientName: entry.patient!.name ?? "this patient",
+                          })
+                        }
+                        className="h-9 rounded-lg border-[#E8E1D7] text-[13px] font-medium text-[#2D2626]"
+                      >
+                        <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Re-screen
+                      </Button>
+                    )}
                     <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg border-[#E8E1D7] text-[#5C544F]">
                       <MessageSquare className="h-4 w-4" />
                     </Button>
                   </div>
+                  {entry.patient && (
+                    <ScreenerActivityPanel patientId={entry.patient.id} refreshKey={activityKey} />
+                  )}
                 </div>
               ))
             )}
@@ -557,6 +598,14 @@ export default function TherapistPortal() {
           </CardContent>
         </Card>
       </div>
+      {requestModal && (
+        <ScreenerRequestModal
+          patientId={requestModal.patientId}
+          patientName={requestModal.patientName}
+          onClose={() => setRequestModal(null)}
+          onCreated={() => setActivityKey((k) => k + 1)}
+        />
+      )}
     </div>
   );
 }

@@ -17,6 +17,8 @@ import DemoPage from "@/pages/demo";
 import PatientPortal from "@/pages/patient-portal";
 import TherapistPortal from "@/pages/therapist-portal";
 import Results from "@/pages/results";
+import ScreenerByToken from "@/pages/screener";
+import ScreenerExport from "@/pages/screener-export";
 import NotFound from "@/pages/not-found";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@clerk/react";
@@ -282,6 +284,10 @@ function Router() {
       </Route>
       <Route path="/sessions">
         {() => <RequirePatient component={SessionsList} layout={AppLayout} />}
+      </Route>
+      <Route path="/screener/:token" component={ScreenerByToken} />
+      <Route path="/therapist-portal/screener-responses/:responseId/export">
+        {() => <RequireSignIn component={ScreenerExport} redirectTo="/sign-in" />}
       </Route>
       <Route component={NotFound} />
     </Switch>

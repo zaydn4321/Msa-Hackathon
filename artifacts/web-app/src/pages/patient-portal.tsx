@@ -12,6 +12,7 @@ import {
   Users,
   CheckCircle2,
   PlayCircle,
+  ClipboardList,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -54,11 +55,77 @@ function useMyMatches() {
   return data;
 }
 
+type ScreenerRequest = {
+  id: number;
+  instrument: string;
+  label: string;
+  status: string;
+  note: string | null;
+  magicToken: string;
+  expiresAt: string;
+  therapistName: string;
+};
+
+function useMyScreenerRequests() {
+  const [data, setData] = useState<ScreenerRequest[] | null>(null);
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/patient/screener-requests", { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : { requests: [] }))
+        .then((d) => setData(d.requests ?? []))
+        .catch(() => setData([]));
+    load();
+    const i = setInterval(load, 8000);
+    return () => clearInterval(i);
+  }, []);
+  return data;
+}
+
+function ScreenerRequestBanner({ requests }: { requests: ScreenerRequest[] }) {
+  if (!requests || requests.length === 0) return null;
+  return (
+    <div className="bg-[#F5EFE6] border border-[#E8E1D7] rounded-2xl p-5 flex flex-col gap-3 shadow-sm">
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-7 rounded-full bg-white border border-[#E8E1D7] flex items-center justify-center">
+          <ClipboardList className="h-4 w-4 text-[#9B7250]" />
+        </div>
+        <p className="font-medium text-[#2D2626] text-[15px]">
+          {requests.length === 1
+            ? `${requests[0].therapistName} sent you a check-in`
+            : `You have ${requests.length} new check-ins`}
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        {requests.map((r) => (
+          <div
+            key={r.id}
+            className="flex items-center justify-between gap-3 bg-white border border-[#E8E1D7] rounded-xl p-3"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[#2D2626]">{r.label} screener</p>
+              <p className="text-xs text-[#5C544F] truncate">
+                {r.note ? `"${r.note}"` : `From ${r.therapistName}`} · expires{" "}
+                {new Date(r.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </p>
+            </div>
+            <Link href={`/screener/${r.magicToken}`}>
+              <Button className="rounded-xl h-9 px-4 text-[13px] bg-[#9B7250] hover:bg-[#8B6B5D] text-white shrink-0">
+                Start <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PatientPortal() {
   const { isSignedIn, isLoaded } = useAuth();
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const sessions = useMySessions();
   const matches = useMyMatches();
+  const screenerRequests = useMyScreenerRequests();
   const { data: therapists } = useListTherapists();
 
   if (!isLoaded || userLoading) {
@@ -113,6 +180,10 @@ export default function PatientPortal() {
             </Button>
           </Link>
         </div>
+
+        {screenerRequests && screenerRequests.length > 0 && (
+          <ScreenerRequestBanner requests={screenerRequests} />
+        )}
 
         {/* Stats Grid (real data only) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
