@@ -17,16 +17,16 @@ type SeedRow =
 /**
  * For each demo patient and demo-roster therapist, ensure a Clerk user
  * exists with a deterministic @anamnesis-demo.com email + the shared demo
- * password, then write the resulting Clerk user id back onto the row.
+ * password, that the email is marked verified (so sign-in skips the
+ * email-code prompt), and that the Clerk user id is written back onto
+ * the row.
  *
  * Skips:
- *  - rows that already have a clerkUserId set in the DB
  *  - therapist rows whose profileAttributes already declare a real
  *    seedEmail (e.g. Dr. Zak Rahman) — those keep their real-account flow
+ *  - therapist rows from a non-demo network (real clinicians)
  *
- * Idempotent across server restarts. A single warning is logged and
- * provisioning short-circuits if Clerk rejects the very first create
- * (e.g. password+email sign-in disabled on the instance).
+ * Idempotent across server restarts.
  */
 export async function seedDemoLogins(): Promise<void> {
   const allPatients = await db.select().from(patientsTable);
@@ -35,60 +35,75 @@ export async function seedDemoLogins(): Promise<void> {
   const queue: Array<{ row: SeedRow; email: string }> = [];
 
   for (const p of allPatients) {
-    if (p.clerkUserId) continue;
     queue.push({ row: { kind: "patient", row: p }, email: nameToDemoEmail(p.name) });
   }
 
   for (const t of allTherapists) {
-    if (t.clerkUserId) continue;
-    // Only provision logins for the demo roster — never touch real
-    // clinicians from other networks that may exist in mixed environments.
-    if (t.networkSource !== "anamnesis-demo") continue;
     const attrs = (t.profileAttributes ?? {}) as Record<string, unknown>;
     if (typeof attrs.seedEmail === "string" && attrs.seedEmail.length > 0) {
       // Real-account therapist (e.g. Dr. Zak) — leave alone.
       continue;
     }
-    queue.push({ row: { kind: "therapist", row: t }, email: nameToDemoEmail(t.name) });
+    const demoEmail = nameToDemoEmail(t.name);
+    // Safety: only ever provision into the demo email domain.
+    if (!demoEmail.endsWith(`@${DEMO_EMAIL_DOMAIN}`)) continue;
+    queue.push({ row: { kind: "therapist", row: t }, email: demoEmail });
   }
 
   if (queue.length === 0) {
-    logger.info("[demo-logins] All demo accounts already provisioned");
+    logger.info("[demo-logins] No demo rows to process");
     return;
   }
 
   logger.info(
-    { pending: queue.length, domain: DEMO_EMAIL_DOMAIN },
-    "[demo-logins] Provisioning Clerk demo accounts",
+    { total: queue.length, domain: DEMO_EMAIL_DOMAIN },
+    "[demo-logins] Reconciling Clerk demo accounts",
   );
 
   let created = 0;
   let linked = 0;
+  let verified = 0;
   let failed = 0;
   let aborted = false;
 
   for (const { row, email } of queue) {
     if (aborted) break;
 
-    const displayName =
-      row.kind === "patient" ? row.row.name : row.row.name;
+    const displayName = row.row.name;
+    const existingClerkId =
+      row.kind === "patient" ? row.row.clerkUserId : row.row.clerkUserId;
 
     try {
-      // 1. Try to find an existing Clerk user with this email.
-      const existing = await clerkClient.users.getUserList({
-        emailAddress: [email],
-        limit: 1,
-      });
+      // 1. Resolve the Clerk user — by stored id, then by email lookup,
+      //    then create as a last resort.
+      let clerkUser: Awaited<ReturnType<typeof clerkClient.users.getUser>> | null =
+        null;
 
-      let clerkUserId: string;
-      if (existing.data.length > 0) {
-        clerkUserId = existing.data[0]!.id;
-        linked++;
-      } else {
+      if (existingClerkId) {
+        try {
+          clerkUser = await clerkClient.users.getUser(existingClerkId);
+        } catch {
+          // Stored id no longer exists in Clerk; fall through to lookup.
+          clerkUser = null;
+        }
+      }
+
+      if (!clerkUser) {
+        const found = await clerkClient.users.getUserList({
+          emailAddress: [email],
+          limit: 1,
+        });
+        if (found.data.length > 0) {
+          clerkUser = found.data[0]!;
+          linked++;
+        }
+      }
+
+      if (!clerkUser) {
         const [first, ...rest] = displayName.replace(/,.*$/, "").trim().split(/\s+/);
         const last = rest.length > 0 ? rest[rest.length - 1] : undefined;
 
-        const newUser = await clerkClient.users.createUser({
+        clerkUser = await clerkClient.users.createUser({
           emailAddress: [email],
           password: DEMO_PASSWORD,
           firstName: first || undefined,
@@ -96,35 +111,50 @@ export async function seedDemoLogins(): Promise<void> {
           skipPasswordChecks: true,
           skipPasswordRequirement: false,
         });
-        clerkUserId = newUser.id;
         created++;
       }
 
-      // 2. Write back to DB.
-      if (row.kind === "patient") {
-        await db
-          .update(patientsTable)
-          .set({ clerkUserId })
-          .where(eq(patientsTable.id, row.row.id));
-      } else {
-        await db
-          .update(therapistsTable)
-          .set({ clerkUserId })
-          .where(eq(therapistsTable.id, row.row.id));
+      // 2. Mark every email on this user as verified so the sign-in flow
+      //    doesn't ask for an email code.
+      for (const ea of clerkUser.emailAddresses) {
+        if (ea.verification?.status === "verified") continue;
+        try {
+          await clerkClient.emailAddresses.updateEmailAddress(ea.id, {
+            verified: true,
+          });
+          verified++;
+        } catch (verifyErr) {
+          const ve = verifyErr as { errors?: Array<{ message?: string }>; message?: string };
+          logger.warn(
+            { email: ea.emailAddress, message: ve.errors?.[0]?.message ?? ve.message },
+            "[demo-logins] Could not mark email verified",
+          );
+        }
+      }
+
+      // 3. Write clerkUserId back to DB if missing or stale.
+      if (existingClerkId !== clerkUser.id) {
+        if (row.kind === "patient") {
+          await db
+            .update(patientsTable)
+            .set({ clerkUserId: clerkUser.id })
+            .where(eq(patientsTable.id, row.row.id));
+        } else {
+          await db
+            .update(therapistsTable)
+            .set({ clerkUserId: clerkUser.id })
+            .where(eq(therapistsTable.id, row.row.id));
+        }
       }
     } catch (err) {
       failed++;
       const e = err as { errors?: Array<{ message?: string }>; message?: string };
-      const message =
-        e.errors?.[0]?.message ?? e.message ?? String(err);
+      const message = e.errors?.[0]?.message ?? e.message ?? String(err);
 
-      // If the very first attempt fails, the Clerk instance likely doesn't
-      // support email+password sign-in. Emit one canonical warning and
-      // abort so we don't spam logs with 50+ identical errors on every boot.
       if (created === 0 && linked === 0) {
         logger.warn(
           { email, kind: row.kind, name: displayName, message },
-          "[demo-logins] Aborting demo-login provisioning — Clerk rejected the first attempt (email+password sign-in may be disabled). Demo directory page will be empty until this is resolved.",
+          "[demo-logins] Aborting demo-login provisioning — Clerk rejected the first attempt (email+password sign-in may be disabled).",
         );
         aborted = true;
       } else {
@@ -137,7 +167,7 @@ export async function seedDemoLogins(): Promise<void> {
   }
 
   logger.info(
-    { created, linked, failed, aborted },
-    "[demo-logins] Provisioning complete",
+    { created, linked, verified, failed, aborted },
+    "[demo-logins] Reconciliation complete",
   );
 }

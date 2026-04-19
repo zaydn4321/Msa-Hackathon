@@ -1,5 +1,8 @@
-import { useEffect, useRef, type ComponentType } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { useEffect, useRef, useState, type ComponentType, type FormEvent } from "react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useSignIn } from "@clerk/react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -191,6 +194,100 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function PasswordOnlySignInForm({ initialEmail }: { initialEmail?: string }) {
+  const { signIn, fetchStatus } = useSignIn();
+  const [, setLocation] = useLocation();
+  const [email, setEmail] = useState(initialEmail ?? "");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const passwordRes = await signIn.password({
+        identifier: email.trim(),
+        password,
+      });
+      if (passwordRes.error) {
+        const ce = passwordRes.error as { errors?: Array<{ message?: string; longMessage?: string }>; message?: string };
+        setError(ce.errors?.[0]?.longMessage ?? ce.errors?.[0]?.message ?? ce.message ?? "Sign-in failed");
+        return;
+      }
+      const finalRes = await signIn.finalize();
+      if (finalRes.error) {
+        const ce = finalRes.error as { errors?: Array<{ message?: string; longMessage?: string }>; message?: string };
+        setError(ce.errors?.[0]?.longMessage ?? ce.errors?.[0]?.message ?? ce.message ?? "Sign-in failed");
+      } else {
+        setLocation("/portal");
+      }
+    } catch (err) {
+      const e = err as { errors?: Array<{ message?: string; longMessage?: string }>; message?: string };
+      setError(e.errors?.[0]?.longMessage ?? e.errors?.[0]?.message ?? e.message ?? "Sign-in failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const isLoaded = fetchStatus !== undefined;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div>
+        <h1 className="font-serif text-[2.25rem] font-medium leading-tight text-foreground">Sign in</h1>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="signin-email" className="text-[13px] font-medium text-foreground">Email address</Label>
+        <Input
+          id="signin-email"
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="h-11"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="signin-password" className="text-[13px] font-medium text-foreground">Password</Label>
+        <Input
+          id="signin-password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="h-11"
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-destructive">
+          {error}
+        </div>
+      )}
+
+      <Button type="submit" disabled={!isLoaded || submitting} className="w-full h-11 text-sm font-medium">
+        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue"}
+      </Button>
+
+      <div id="clerk-captcha" />
+
+      <p className="text-center text-[13px] text-muted-foreground">
+        No account?{" "}
+        <a href={`${basePath}/sign-up`} className="font-medium text-primary underline-offset-2 hover:underline">
+          Create one
+        </a>
+      </p>
+    </form>
+  );
+}
+
 function SignInPage() {
   const demoEmail = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("demo_email") ?? undefined
@@ -203,13 +300,7 @@ function SignInPage() {
           Email <span className="font-mono">{demoEmail}</span> is prefilled — paste the password from your clipboard or use the shared demo password.
         </div>
       )}
-      <SignIn
-        routing="path"
-        path={`${basePath}/sign-in`}
-        signUpUrl={`${basePath}/sign-up`}
-        fallbackRedirectUrl={`${basePath}/portal`}
-        initialValues={demoEmail ? { emailAddress: demoEmail } : undefined}
-      />
+      <PasswordOnlySignInForm initialEmail={demoEmail} />
     </AuthLayout>
   );
 }
