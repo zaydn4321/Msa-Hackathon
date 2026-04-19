@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, patientsTable, therapistsTable } from "@workspace/db";
 import { isNotNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
-import { isDemoEmail } from "../lib/demoCredentials";
+import { DEMO_PASSWORD, isDemoEmail } from "../lib/demoCredentials";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -24,7 +24,7 @@ const CACHE_TTL_MS = 30_000;
 router.get("/demo/accounts", async (_req, res) => {
   const now = Date.now();
   if (accountCache.value && now - accountCache.loadedAt < CACHE_TTL_MS) {
-    res.json({ accounts: accountCache.value });
+    res.json({ accounts: accountCache.value, sharedPassword: DEMO_PASSWORD });
     return;
   }
 
@@ -64,8 +64,8 @@ router.get("/demo/accounts", async (_req, res) => {
     for (const p of patients) {
       const email = emailById.get(p.clerkUserId!);
       if (!email || !isDemoEmail(email)) continue;
-      const profiles = (p.demographics as any)?.clinicalProfiles ?? [];
-      const headline = Array.isArray(profiles) && profiles.length > 0
+      const profiles = p.demographics?.clinicalProfiles ?? [];
+      const headline = profiles.length > 0
         ? profiles.slice(0, 2).join(" · ")
         : "Demo patient";
       accounts.push({
@@ -80,11 +80,13 @@ router.get("/demo/accounts", async (_req, res) => {
     for (const t of therapists) {
       const email = emailById.get(t.clerkUserId!);
       if (!email || !isDemoEmail(email)) continue;
-      const specialties = Array.isArray(t.specialties) ? t.specialties : [];
-      const profile = (t.providerProfile as any) ?? {};
+      const specialties = t.specialties;
+      const profileTitle = typeof t.providerProfile?.title === "string"
+        ? t.providerProfile.title
+        : "";
       const headline = specialties.length > 0
         ? specialties.slice(0, 3).join(" · ")
-        : profile.title || "Demo therapist";
+        : profileTitle || "Demo therapist";
       accounts.push({
         role: "therapist",
         recordId: t.id,
@@ -101,10 +103,11 @@ router.get("/demo/accounts", async (_req, res) => {
 
     accountCache.value = accounts;
     accountCache.loadedAt = now;
-    res.json({ accounts });
-  } catch (err: any) {
-    logger.warn({ err: err?.message ?? String(err) }, "Failed to list demo accounts");
-    res.json({ accounts: [] });
+    res.json({ accounts, sharedPassword: DEMO_PASSWORD });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn({ err: message }, "Failed to list demo accounts");
+    res.json({ accounts: [], sharedPassword: DEMO_PASSWORD });
   }
 });
 

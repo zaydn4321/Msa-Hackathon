@@ -14,10 +14,6 @@ type DemoAccount = {
   headline: string;
 };
 
-const DEMO_PASSWORD =
-  (import.meta.env.VITE_DEMO_ACCOUNT_PASSWORD as string | undefined) ||
-  "Anamnesis-Demo-2026";
-
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 async function copy(text: string): Promise<boolean> {
@@ -66,7 +62,10 @@ export default function DemoPage() {
   const { toast } = useToast();
   const [signingIn, setSigningIn] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery<{ accounts: DemoAccount[] }>({
+  const { data, isLoading, error } = useQuery<{
+    accounts: DemoAccount[];
+    sharedPassword: string;
+  }>({
     queryKey: ["demo/accounts"],
     queryFn: async () => {
       const res = await fetch("/api/demo/accounts");
@@ -75,6 +74,8 @@ export default function DemoPage() {
     },
     staleTime: 60_000,
   });
+
+  const demoPassword = data?.sharedPassword ?? "";
 
   const { patients, therapists } = useMemo(() => {
     const list = data?.accounts ?? [];
@@ -92,8 +93,8 @@ export default function DemoPage() {
     toast({
       title: copied ? "Email copied" : "Use this email to sign in",
       description: copied
-        ? `Pasted into the form. Password: ${DEMO_PASSWORD}`
-        : `${email} — password: ${DEMO_PASSWORD}`,
+        ? `Pasted into the form. Password: ${demoPassword}`
+        : `${email} — password: ${demoPassword}`,
     });
 
     if (isSignedIn) {
@@ -143,10 +144,10 @@ export default function DemoPage() {
               Shared password
             </div>
             <div className="font-mono text-base text-[#2D2626] tracking-tight select-all">
-              {DEMO_PASSWORD}
+              {demoPassword || "…"}
             </div>
           </div>
-          <CopyButton value={DEMO_PASSWORD} label="password" />
+          {demoPassword && <CopyButton value={demoPassword} label="password" />}
         </div>
 
         {isLoading && (
