@@ -97,27 +97,63 @@ Session ID: ${sessionId}`,
   };
 }
 
+type TavusTranscriptItem = { role?: string; content?: string };
+type TavusEvent = {
+  event_type?: string;
+  properties?: { transcript?: TavusTranscriptItem[] };
+};
+
+function formatTranscript(items: TavusTranscriptItem[]): string {
+  return items
+    // The first item is typically the system prompt (role "system") — skip it.
+    .filter((t) => t.role && t.role !== "system" && typeof t.content === "string" && t.content.trim().length > 0)
+    .map((t) => {
+      const role = (t.role ?? "").toLowerCase();
+      const isPatient = role === "user" || role === "human";
+      return `${isPatient ? "Patient" : "Sakinah"}: ${t.content!.trim()}`;
+    })
+    .join("\n");
+}
+
 export async function fetchTavusTranscript(conversationId: string): Promise<string> {
   if (!TAVUS_API_KEY) return "";
   try {
-    const res = await fetch(`https://tavusapi.com/v2/conversations/${conversationId}`, {
-      headers: { "x-api-key": TAVUS_API_KEY },
-    });
+    // The transcript lives in events[].properties.transcript and is ONLY
+    // returned when verbose=true is set on the GET. Without verbose, the
+    // events array is omitted entirely.
+    const res = await fetch(
+      `https://tavusapi.com/v2/conversations/${conversationId}?verbose=true`,
+      { headers: { "x-api-key": TAVUS_API_KEY } }
+    );
     if (!res.ok) return "";
-    const data = await res.json() as Record<string, unknown>;
+    const data = (await res.json()) as Record<string, unknown> & {
+      events?: TavusEvent[];
+      conversation_transcript?: TavusTranscriptItem[];
+      transcript?: string | TavusTranscriptItem[];
+    };
 
-    const raw = data.conversation_transcript;
-    if (Array.isArray(raw) && raw.length > 0) {
-      return (raw as Array<{ role: string; content: string }>)
-        .map((t) => {
-          const isPatient = t.role === "user" || t.role === "human";
-          return `${isPatient ? "Patient" : "Sakinah"}: ${t.content}`;
-        })
-        .join("\n");
+    if (Array.isArray(data.events)) {
+      const transcriptionEvent = data.events.find(
+        (e) => e.event_type === "application.transcription_ready"
+      );
+      const items = transcriptionEvent?.properties?.transcript;
+      if (Array.isArray(items) && items.length > 0) {
+        const formatted = formatTranscript(items);
+        if (formatted.length > 0) return formatted;
+      }
+    }
+
+    if (Array.isArray(data.conversation_transcript) && data.conversation_transcript.length > 0) {
+      const formatted = formatTranscript(data.conversation_transcript);
+      if (formatted.length > 0) return formatted;
     }
 
     if (typeof data.transcript === "string" && data.transcript.length > 0) {
-      return data.transcript as string;
+      return data.transcript;
+    }
+    if (Array.isArray(data.transcript) && data.transcript.length > 0) {
+      const formatted = formatTranscript(data.transcript);
+      if (formatted.length > 0) return formatted;
     }
 
     logger.info({ conversationId, status: data.status }, "Tavus transcript not yet available");
