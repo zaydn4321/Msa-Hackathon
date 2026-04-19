@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useClerk, useAuth } from "@clerk/react";
+import { useClerk, useAuth, useSignIn } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Copy, Check, LogIn, UserRound, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,14 +15,6 @@ type DemoAccount = {
 };
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-// Public demo password — must match server-side DEMO_ACCOUNT_PASSWORD.
-// Defaults are kept in lockstep across server (`demoCredentials.ts`) and
-// client; a non-default value should be set in BOTH `DEMO_ACCOUNT_PASSWORD`
-// and `VITE_DEMO_ACCOUNT_PASSWORD` so they cannot drift.
-const DEMO_PASSWORD =
-  (import.meta.env.VITE_DEMO_ACCOUNT_PASSWORD as string | undefined) ||
-  "Anamnesis-Demo-2026";
 
 async function copy(text: string): Promise<boolean> {
   try {
@@ -67,6 +59,7 @@ export default function DemoPage() {
   const [, setLocation] = useLocation();
   const { signOut } = useClerk();
   const { isSignedIn } = useAuth();
+  const { signIn } = useSignIn();
   const { toast } = useToast();
   const [signingIn, setSigningIn] = useState<string | null>(null);
 
@@ -90,20 +83,50 @@ export default function DemoPage() {
 
   async function signInAs(email: string) {
     setSigningIn(email);
-    const copied = await copy(email);
-    const target = `/sign-in?demo_email=${encodeURIComponent(email)}`;
+    try {
+      if (isSignedIn) {
+        await signOut();
+      }
 
-    toast({
-      title: copied ? "Email copied" : "Use this email to sign in",
-      description: copied
-        ? `Pasted into the form. Password: ${DEMO_PASSWORD}`
-        : `${email} — password: ${DEMO_PASSWORD}`,
-    });
+      const tokenRes = await fetch("/api/demo/sign-in-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!tokenRes.ok) {
+        const body = await tokenRes.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Could not get sign-in token");
+      }
+      const { token } = (await tokenRes.json()) as { token: string };
 
-    if (isSignedIn) {
-      await signOut({ redirectUrl: `${basePath}${target}` });
-    } else {
-      setLocation(target);
+      const ticketRes = await signIn.ticket({ ticket: token });
+      if (ticketRes.error) {
+        throw ticketRes.error;
+      }
+
+      const finalRes = await signIn.finalize();
+      if (finalRes.error) {
+        throw finalRes.error;
+      }
+
+      toast({
+        title: "Signed in",
+        description: email,
+      });
+      setLocation("/portal");
+    } catch (err) {
+      const e = err as { errors?: Array<{ message?: string; longMessage?: string }>; message?: string };
+      toast({
+        variant: "destructive",
+        title: "Sign-in failed",
+        description:
+          e.errors?.[0]?.longMessage ??
+          e.errors?.[0]?.message ??
+          e.message ??
+          "Please try again.",
+      });
+    } finally {
+      setSigningIn(null);
     }
   }
 
@@ -137,20 +160,8 @@ export default function DemoPage() {
           </h1>
           <p className="text-[15px] text-[#5C544F] max-w-2xl leading-relaxed">
             Pick any account below to experience the full product as that
-            person. Every account uses the same shared demo password.
+            person. Sign-in is one-click — no password required.
           </p>
-        </div>
-
-        <div className="rounded-2xl border border-[#E8E1D7] bg-white p-5 mb-10 flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-xs font-mono uppercase tracking-wider text-[#A09890] mb-1">
-              Shared password
-            </div>
-            <div className="font-mono text-base text-[#2D2626] tracking-tight select-all">
-              {DEMO_PASSWORD}
-            </div>
-          </div>
-          <CopyButton value={DEMO_PASSWORD} label="password" />
         </div>
 
         {isLoading && (

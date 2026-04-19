@@ -5,6 +5,8 @@ import { clerkClient } from "@clerk/express";
 import { isDemoEmail } from "../lib/demoCredentials";
 import { logger } from "../lib/logger";
 
+const SIGN_IN_TOKEN_TTL_SECONDS = 300;
+
 const router: IRouter = Router();
 
 type DemoAccount = {
@@ -108,6 +110,37 @@ router.get("/demo/accounts", async (_req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ err: message }, "Failed to list demo accounts");
     res.json({ accounts: [] });
+  }
+});
+
+router.post("/demo/sign-in-token", async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!email || !isDemoEmail(email)) {
+    res.status(400).json({ error: "Email must be a demo account" });
+    return;
+  }
+
+  try {
+    const list = await clerkClient.users.getUserList({
+      emailAddress: [email],
+      limit: 1,
+    });
+    const user = list.data[0];
+    if (!user) {
+      res.status(404).json({ error: "No demo account for that email" });
+      return;
+    }
+
+    const token = await clerkClient.signInTokens.createSignInToken({
+      userId: user.id,
+      expiresInSeconds: SIGN_IN_TOKEN_TTL_SECONDS,
+    });
+
+    res.json({ token: token.token });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn({ email, err: message }, "Failed to mint demo sign-in token");
+    res.status(500).json({ error: "Could not create sign-in token" });
   }
 });
 
