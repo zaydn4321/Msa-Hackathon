@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AgentTrace } from "./agentTrace";
 import type { ClinicalBrief } from "./clinicalBrief";
 
 export interface IntakeSession {
@@ -14,4 +15,5 @@ export interface IntakeSession {
   endedAt?: Date | null;
   clinicalBrief?: ClinicalBrief | null;
   assignedTherapistId?: number | null;
+  agentTrace?: AgentTrace | null;
 }

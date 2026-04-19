@@ -286,6 +286,9 @@ components:
         assignedTherapistId:
           type: integer
           nullable: true
+        agentTrace:
+          $ref: "#/components/schemas/AgentTrace"
+          nullable: true
       required:
         - id
         - startedAt
@@ -538,5 +541,153 @@ components:
           additionalProperties:
             type: string
           description: Map of therapist ID (as string) to human-readable match reason
+        clinicalProfileV2:
+          $ref: "#/components/schemas/ClinicalProfileV2"
+          nullable: true
+        agentTrace:
+          $ref: "#/components/schemas/AgentTrace"
+          nullable: true
+        matchExplanations:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of therapist ID to per-match agent-generated explanation
+        featureBreakdown:
+          type: object
+          additionalProperties: true
+          description: Map of therapist ID to weighted feature contribution breakdown
       required:
         - matches
+
+    ClinicalProfileV2:
+      type: object
+      properties:
+        primary:
+          type: object
+          properties:
+            slug: { type: string }
+            label: { type: string }
+            confidence: { type: number }
+          required: [slug, label, confidence]
+        secondary:
+          type: array
+          items:
+            type: object
+            properties:
+              slug: { type: string }
+              label: { type: string }
+              confidence: { type: number }
+            required: [slug, label, confidence]
+        severity:
+          type: string
+          enum: [mild, moderate, severe]
+        riskFlags:
+          type: object
+          properties:
+            suicidalIdeation: { type: boolean }
+            selfHarm: { type: boolean }
+            substanceUse: { type: boolean }
+            crisis: { type: boolean }
+          required: [suicidalIdeation, selfHarm, substanceUse, crisis]
+        axisConfidence:
+          type: object
+          properties:
+            diagnosis: { type: number }
+            severity: { type: number }
+            risk: { type: number }
+          required: [diagnosis, severity, risk]
+        reasoning:
+          type: string
+      required: [primary, secondary, severity, riskFlags, axisConfidence, reasoning]
+
+    PipelineStep:
+      type: object
+      properties:
+        stage: { type: string }
+        label: { type: string }
+        startedAt: { type: string }
+        durationMs: { type: number }
+        status:
+          type: string
+          enum: [ok, skipped, fallback, error]
+        summary: { type: string }
+        detail: {}
+      required: [stage, label, startedAt, durationMs, status, summary]
+
+    FeatureContribution:
+      type: object
+      properties:
+        feature: { type: string }
+        label: { type: string }
+        weight: { type: number }
+        rawValue: { type: number }
+        contribution: { type: number }
+        note: { type: string }
+      required: [feature, label, weight, rawValue, contribution]
+
+    ScoredCandidate:
+      type: object
+      properties:
+        therapistId: { type: integer }
+        therapistName: { type: string }
+        heuristicRank: { type: integer }
+        finalRank: { type: integer }
+        score: { type: number }
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeatureContribution"
+        explanation: { type: string }
+        critiqueNote: { type: string }
+        vetoed: { type: boolean }
+      required: [therapistId, therapistName, heuristicRank, finalRank, score, features, explanation]
+
+    AgentTrace:
+      type: object
+      properties:
+        pipelineVersion: { type: string }
+        generatedAt: { type: string }
+        degraded: { type: boolean }
+        degradedReason: { type: string }
+        plan:
+          type: array
+          items: { type: string }
+        planRationale: { type: string }
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStep"
+        clinicalProfileV2:
+          $ref: "#/components/schemas/ClinicalProfileV2"
+          nullable: true
+        candidatePoolSize: { type: integer }
+        shortlistSize: { type: integer }
+        scored:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoredCandidate"
+        finalMatchIds:
+          type: array
+          items: { type: integer }
+        critiqueDiff:
+          type: array
+          items:
+            type: object
+            properties:
+              therapistId: { type: integer }
+              from: { type: integer }
+              to:
+                type: integer
+                nullable: true
+              rationale: { type: string }
+            required: [therapistId, from, rationale]
+      required:
+        - pipelineVersion
+        - generatedAt
+        - degraded
+        - plan
+        - steps
+        - candidatePoolSize
+        - shortlistSize
+        - scored
+        - finalMatchIds

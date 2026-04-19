@@ -3,6 +3,8 @@ import { db, patientsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureTherapistsProvisioned } from "./ensureTherapists";
 import { seedSpecialTherapists } from "./seedSpecialTherapists";
+import { seedDemoMatches } from "./seedDemoMatches";
+import { seedDemoLogins } from "./seedDemoLogins";
 
 const demoPatients = [
   {
@@ -19,6 +21,14 @@ const demoPatients = [
       age: 28,
       gender: "female",
       clinicalProfiles: ["anxiety", "burnout"],
+    },
+  },
+  {
+    name: "Jordan Kim",
+    demographics: {
+      age: 31,
+      gender: "male",
+      clinicalProfiles: ["ocd", "anxiety"],
     },
   },
 ];
@@ -49,6 +59,9 @@ export async function bootstrapDemoData() {
         .where(eq(patientsTable.id, existing.id));
     }
   }
+
+  await seedDemoMatches();
+  await seedDemoLogins();
 
   logger.info(
     { therapistCount: therapists.length, demoPatientCount: demoPatients.length },

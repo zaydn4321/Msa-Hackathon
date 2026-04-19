@@ -3,11 +3,8 @@ import { cn } from "@/lib/utils";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { useAuth, useUser } from "@clerk/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { LogOut, Bell, Search, Home as HomeIcon, LayoutDashboard, Users, Calendar, UserCog, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Home as HomeIcon, LayoutDashboard, Users, Calendar, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 
 export function MarketingLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -24,7 +21,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground font-sans">
-      <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur-sm border-b border-border/50">
+      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/60 supports-[backdrop-filter]:bg-background/70">
         <div className="container flex h-[72px] max-w-screen-xl items-center justify-between px-6 md:px-8 mx-auto">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
@@ -36,28 +33,16 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
 
             <nav className="hidden md:flex items-center gap-7 text-[15px]">
               <Link href="/" className={cn("transition-colors hover:text-foreground", location === "/" ? "text-foreground font-medium" : "text-muted-foreground")}>Home</Link>
-              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">Product</Link>
-              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Patients</Link>
-              <Link href="#" className="text-muted-foreground transition-colors hover:text-foreground">For Therapists</Link>
-              <Link href="/therapists" className={cn("transition-colors hover:text-foreground", location.startsWith("/therapists") ? "text-foreground font-medium" : "text-muted-foreground")}>Directory</Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-5">
-            {isSignedIn ? (
-              <Link href={portalPath} className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity">
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link href="/sign-in" className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity hidden sm:block">
-                  Sign In
-                </Link>
-                <Link href="/sign-up" className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-6 text-[15px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
-                  Get Started
-                </Link>
-              </>
-            )}
+            <Link href="/sign-in" className="text-[15px] font-medium text-foreground hover:opacity-80 transition-opacity hidden sm:block">
+              Sign In
+            </Link>
+            <Link href={isSignedIn ? portalPath : "/sign-up"} className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-6 text-[15px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+              Get Started
+            </Link>
           </div>
         </div>
       </header>
@@ -66,74 +51,26 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-const PRIOR_PATIENT_KEY = "anamnesis.dev.priorPatientId";
-
-function useDevRoleSwitch(currentRole: "patient" | "therapist" | null | undefined) {
-  const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
-  const [enabled, setEnabled] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/dev/role-switch/enabled", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => setEnabled(!!d.enabled))
-      .catch(() => setEnabled(false));
-  }, []);
-
-  const switchTo = async (target: "patient" | "therapist") => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const priorPatientId =
-        target === "patient"
-          ? Number(localStorage.getItem(PRIOR_PATIENT_KEY)) || undefined
-          : undefined;
-      const res = await fetch("/api/dev/role-switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ role: target, priorPatientId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      if (target === "therapist" && data.priorPatientId) {
-        localStorage.setItem(PRIOR_PATIENT_KEY, String(data.priorPatientId));
-      }
-      if (target === "patient") {
-        localStorage.removeItem(PRIOR_PATIENT_KEY);
-      }
-      await queryClient.invalidateQueries({ queryKey: ["auth/me"] });
-      setLocation(target === "therapist" ? "/therapist-portal" : "/patient-portal");
-    } catch (err) {
-      console.error("[dev role switch]", err);
-      alert("Role switch failed — check console.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return {
-    enabled,
-    busy,
-    switchTo,
-    canViewAsTherapist: enabled && currentRole === "patient",
-    canViewAsPatient: enabled && currentRole === "therapist",
-  };
-}
-
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const { signOut } = useAuth();
   const { user } = useUser();
   const { data: currentUser } = useCurrentUser();
 
   const isPatient = currentUser?.role === "patient";
   const isTherapist = currentUser?.role === "therapist";
-  const devSwitch = useDevRoleSwitch(currentUser?.role);
 
-  const initials = user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?";
-  const name = user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "User";
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+  const name = fullName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "User";
+  const initialsSource = fullName || user?.emailAddresses?.[0]?.emailAddress || "?";
+  const initials = initialsSource
+    .replace(/^Dr\.?\s+/i, "")
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "?";
 
   const navItems = [
     { label: "Home", href: "/", icon: HomeIcon },
@@ -143,9 +80,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-[100dvh] flex bg-[#F8F9FA] text-foreground font-sans">
+    <div className="min-h-[100dvh] flex bg-background text-foreground font-sans">
       {/* Left Sidebar */}
-      <aside className="w-[260px] bg-white border-r border-border/50 flex flex-col hidden md:flex sticky top-0 h-[100dvh]">
+      <aside className="w-[260px] bg-sidebar border-r border-sidebar-border flex flex-col hidden md:flex sticky top-0 h-[100dvh]">
         <div className="p-6">
           <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
@@ -160,73 +97,52 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             return (
               <Link key={item.label} href={item.href} className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
-                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
               )}>
-                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                <item.icon className={cn("h-5 w-5 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                 {item.label}
+                {isActive && (
+                  <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-border/50 space-y-2">
-          {devSwitch.enabled && (devSwitch.canViewAsTherapist || devSwitch.canViewAsPatient) && (
-            <button
-              onClick={() =>
-                devSwitch.switchTo(devSwitch.canViewAsTherapist ? "therapist" : "patient")
-              }
-              disabled={devSwitch.busy}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-[#9B7250] bg-[#F5EFE6] hover:bg-[#EFE7DA] border border-[#E8E1D7] transition-colors disabled:opacity-60"
-              title="Dev only — toggles between patient and therapist views"
-            >
-              {devSwitch.busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserCog className="h-4 w-4" />
-              )}
-              {devSwitch.canViewAsTherapist ? "View as therapist" : "View as patient"}
-            </button>
-          )}
-          <div className="flex items-center gap-3 px-2 py-2">
-            <Avatar className="h-9 w-9 bg-muted border border-border/50">
+        <div className="p-4 mt-auto border-t border-sidebar-border space-y-3">
+          <div className="flex items-center gap-3 px-2">
+            <Avatar className="h-9 w-9 bg-muted border border-border">
               <AvatarImage src={user?.imageUrl} />
               <AvatarFallback className="bg-primary/10 text-primary font-serif text-sm">{initials}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-medium text-foreground truncate">{name}</p>
-              <button onClick={() => signOut({ redirectUrl: "/" })} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-                Sign out
-              </button>
-            </div>
+            <p className="text-[14px] font-medium text-foreground truncate flex-1 min-w-0">{name}</p>
           </div>
+          <button
+            onClick={() => signOut({ redirectUrl: "/" })}
+            className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-lg bg-primary text-primary-foreground text-[14px] font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-[72px] bg-white border-b border-border/50 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search..." 
-              className="pl-9 bg-muted/30 border-border/50 h-10 rounded-lg text-sm"
-            />
-          </div>
+        <header className="h-[72px] bg-sidebar/80 backdrop-blur-md border-b border-border/60 flex items-center justify-end px-8 sticky top-0 z-30">
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-2 text-[14px] font-medium text-muted-foreground">
               <Calendar className="h-4 w-4" />
               <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
             </div>
-            <button className="relative h-10 w-10 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-destructive border border-white" />
-            </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#F8F9FA] p-8">
+        <main className="flex-1 overflow-auto bg-background p-6 md:p-8 lg:p-10">
           {children}
         </main>
       </div>

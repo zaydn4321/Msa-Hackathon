@@ -6,8 +6,11 @@ import conversationRouter from "./conversation";
 import tavusRouter from "./tavus";
 import authRouter from "./auth";
 import therapistPortalRouter from "./therapistPortal";
+import therapistDashboardRouter from "./therapistDashboard";
 import devRoleSwitchRouter from "./devRoleSwitch";
 import matchesRouter from "./matches";
+import demoRouter from "./demo";
+import screenerRequestsRouter from "./screenerRequests";
 
 const router: IRouter = Router();
 
@@ -15,7 +18,10 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(devRoleSwitchRouter);
 router.use(therapistPortalRouter);
+router.use(therapistDashboardRouter);
 router.use(matchesRouter);
+router.use(demoRouter);
+router.use(screenerRequestsRouter);
 router.use(sessionsRouter);
 router.use(conversationRouter);
 router.use(tavusRouter);

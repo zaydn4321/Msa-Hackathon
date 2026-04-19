@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./agentTrace";
+export * from "./agentTraceCritiqueDiffItem";
 export * from "./biometricBatch";
 export * from "./biometricBatchItem";
 export * from "./biometricBatchItemMetric";
@@ -14,14 +16,26 @@ export * from "./biometricReading";
 export * from "./biometricSubtextEvent";
 export * from "./clinicalBrief";
 export * from "./clinicalBriefObjective";
+export * from "./clinicalProfileV2";
+export * from "./clinicalProfileV2AxisConfidence";
+export * from "./clinicalProfileV2Primary";
+export * from "./clinicalProfileV2RiskFlags";
+export * from "./clinicalProfileV2SecondaryItem";
+export * from "./clinicalProfileV2Severity";
 export * from "./errorResponse";
+export * from "./featureContribution";
 export * from "./healthStatus";
 export * from "./intakeSession";
 export * from "./matchRequest";
 export * from "./matchResponse";
+export * from "./matchResponseFeatureBreakdown";
+export * from "./matchResponseMatchExplanations";
 export * from "./matchResponseMatchReasons";
 export * from "./newSession";
 export * from "./outcomeDataEntry";
+export * from "./pipelineStep";
+export * from "./pipelineStepStatus";
+export * from "./scoredCandidate";
 export * from "./therapist";
 export * from "./therapistAvailability";
 export * from "./therapistOutcomeData";

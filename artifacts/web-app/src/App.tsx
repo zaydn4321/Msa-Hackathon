@@ -13,9 +13,13 @@ import TherapistsList from "@/pages/therapists-list";
 import TherapistDetail from "@/pages/therapist-detail";
 import SessionsList from "@/pages/sessions-list";
 import OnboardingPage from "@/pages/onboarding";
+import DemoPage from "@/pages/demo";
 import PatientPortal from "@/pages/patient-portal";
 import TherapistPortal from "@/pages/therapist-portal";
+import TherapistPortalSession from "@/pages/therapist-portal-session";
 import Results from "@/pages/results";
+import ScreenerByToken from "@/pages/screener";
+import ScreenerExport from "@/pages/screener-export";
 import NotFound from "@/pages/not-found";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@clerk/react";
@@ -191,7 +195,12 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 function SignInPage() {
   return (
     <AuthLayout>
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/portal`} />
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        fallbackRedirectUrl={`${basePath}/portal`}
+      />
     </AuthLayout>
   );
 }
@@ -231,11 +240,15 @@ function Router() {
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/portal" component={PortalRedirect} />
       <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/demo" component={DemoPage} />
       <Route path="/patient-portal">
         {() => <RequirePatient component={PatientPortal} layout={AppLayout} />}
       </Route>
       <Route path="/therapist-portal">
         {() => <RequireSignIn component={TherapistPortal} redirectTo="/sign-in" layout={AppLayout} />}
+      </Route>
+      <Route path="/therapist-portal/sessions/:sessionId">
+        {() => <RequireSignIn component={TherapistPortalSession} redirectTo="/sign-in" layout={AppLayout} />}
       </Route>
       <Route path="/intake/new">
         {() => <RequirePatient component={IntakeNew} layout={AppLayout} />}
@@ -265,6 +278,10 @@ function Router() {
       </Route>
       <Route path="/sessions">
         {() => <RequirePatient component={SessionsList} layout={AppLayout} />}
+      </Route>
+      <Route path="/screener/:token" component={ScreenerByToken} />
+      <Route path="/therapist-portal/screener-responses/:responseId/export">
+        {() => <RequireSignIn component={ScreenerExport} redirectTo="/sign-in" />}
       </Route>
       <Route component={NotFound} />
     </Switch>

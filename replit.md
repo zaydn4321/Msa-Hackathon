@@ -72,6 +72,12 @@ lib/
 | TAVUS_PERSONA_ID | Tavus persona ID (optional) |
 | TAVUS_REPLICA_ID | Tavus replica ID (optional) |
 | SESSION_SECRET | Cookie signing secret |
+| DEMO_ACCOUNT_PASSWORD | Server-side: shared password used when provisioning demo Clerk accounts (default: `Anamnesis-Demo-2026`) |
+| VITE_DEMO_ACCOUNT_PASSWORD | Client-side: same password, displayed on the `/demo` page. Must be kept in lockstep with `DEMO_ACCOUNT_PASSWORD` (same default) |
+
+## Demo accounts
+
+On boot the API server provisions one Clerk user per demo patient and roster therapist using deterministic emails (`first.last@anamnesis-demo.com`) and the shared `DEMO_ACCOUNT_PASSWORD`. The `clerkUserId` is written back onto each row so the link is permanent and idempotent across restarts. The `/demo` page in the web app lists every account with copy/sign-in helpers. Therapists with a real `seedEmail` (e.g. Dr. Zak Rahman) are skipped and keep their real-account flow.
 
 ## Running Locally
 

@@ -181,8 +181,14 @@ router.patch("/therapist/matches/:matchId", requireAuth, async (req, res): Promi
   const body = (req.body ?? {}) as {
     phq9Approved?: boolean;
     gad7Approved?: boolean;
+    phq9Note?: string;
+    gad7Note?: string;
     status?: "pending" | "accepted" | "declined";
   };
+  const phq9Note =
+    typeof body.phq9Note === "string" ? body.phq9Note.trim().slice(0, 500) : undefined;
+  const gad7Note =
+    typeof body.gad7Note === "string" ? body.gad7Note.trim().slice(0, 500) : undefined;
 
   const [therapist] = await db
     .select()
@@ -219,14 +225,20 @@ router.patch("/therapist/matches/:matchId", requireAuth, async (req, res): Promi
       ...session.phq9,
       approvedAt: body.phq9Approved ? now : null,
       approvedBy: body.phq9Approved ? therapist.id : null,
+      approvalNote: body.phq9Approved ? (phq9Note || null) : null,
     };
+  } else if (phq9Note !== undefined && session.phq9) {
+    nextPhq9 = { ...session.phq9, approvalNote: phq9Note || null };
   }
   if (typeof body.gad7Approved === "boolean" && session.gad7) {
     nextGad7 = {
       ...session.gad7,
       approvedAt: body.gad7Approved ? now : null,
       approvedBy: body.gad7Approved ? therapist.id : null,
+      approvalNote: body.gad7Approved ? (gad7Note || null) : null,
     };
+  } else if (gad7Note !== undefined && session.gad7) {
+    nextGad7 = { ...session.gad7, approvalNote: gad7Note || null };
   }
   if (nextPhq9 !== session.phq9 || nextGad7 !== session.gad7) {
     await db

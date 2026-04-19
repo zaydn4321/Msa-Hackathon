@@ -5,6 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AgentTrace } from "./agentTrace";
+import type { ClinicalProfileV2 } from "./clinicalProfileV2";
+import type { MatchResponseFeatureBreakdown } from "./matchResponseFeatureBreakdown";
+import type { MatchResponseMatchExplanations } from "./matchResponseMatchExplanations";
 import type { MatchResponseMatchReasons } from "./matchResponseMatchReasons";
 import type { Therapist } from "./therapist";
 
@@ -13,4 +17,10 @@ export interface MatchResponse {
   inferredProfile?: string | null;
   /** Map of therapist ID (as string) to human-readable match reason */
   matchReasons?: MatchResponseMatchReasons;
+  clinicalProfileV2?: ClinicalProfileV2 | null;
+  agentTrace?: AgentTrace | null;
+  /** Map of therapist ID to per-match agent-generated explanation */
+  matchExplanations?: MatchResponseMatchExplanations;
+  /** Map of therapist ID to weighted feature contribution breakdown */
+  featureBreakdown?: MatchResponseFeatureBreakdown;
 }

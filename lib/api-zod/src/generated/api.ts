@@ -51,6 +51,91 @@ export const ListSessionsResponseItem = zod.object({
     })
     .nullish(),
   assignedTherapistId: zod.number().nullish(),
+  agentTrace: zod
+    .object({
+      pipelineVersion: zod.string(),
+      generatedAt: zod.string(),
+      degraded: zod.boolean(),
+      degradedReason: zod.string().optional(),
+      plan: zod.array(zod.string()),
+      planRationale: zod.string().optional(),
+      steps: zod.array(
+        zod.object({
+          stage: zod.string(),
+          label: zod.string(),
+          startedAt: zod.string(),
+          durationMs: zod.number(),
+          status: zod.enum(["ok", "skipped", "fallback", "error"]),
+          summary: zod.string(),
+          detail: zod.unknown().optional(),
+        }),
+      ),
+      clinicalProfileV2: zod
+        .object({
+          primary: zod.object({
+            slug: zod.string(),
+            label: zod.string(),
+            confidence: zod.number(),
+          }),
+          secondary: zod.array(
+            zod.object({
+              slug: zod.string(),
+              label: zod.string(),
+              confidence: zod.number(),
+            }),
+          ),
+          severity: zod.enum(["mild", "moderate", "severe"]),
+          riskFlags: zod.object({
+            suicidalIdeation: zod.boolean(),
+            selfHarm: zod.boolean(),
+            substanceUse: zod.boolean(),
+            crisis: zod.boolean(),
+          }),
+          axisConfidence: zod.object({
+            diagnosis: zod.number(),
+            severity: zod.number(),
+            risk: zod.number(),
+          }),
+          reasoning: zod.string(),
+        })
+        .nullish(),
+      candidatePoolSize: zod.number(),
+      shortlistSize: zod.number(),
+      scored: zod.array(
+        zod.object({
+          therapistId: zod.number(),
+          therapistName: zod.string(),
+          heuristicRank: zod.number(),
+          finalRank: zod.number(),
+          score: zod.number(),
+          features: zod.array(
+            zod.object({
+              feature: zod.string(),
+              label: zod.string(),
+              weight: zod.number(),
+              rawValue: zod.number(),
+              contribution: zod.number(),
+              note: zod.string().optional(),
+            }),
+          ),
+          explanation: zod.string(),
+          critiqueNote: zod.string().optional(),
+          vetoed: zod.boolean().optional(),
+        }),
+      ),
+      finalMatchIds: zod.array(zod.number()),
+      critiqueDiff: zod
+        .array(
+          zod.object({
+            therapistId: zod.number(),
+            from: zod.number(),
+            to: zod.number().nullish(),
+            rationale: zod.string(),
+          }),
+        )
+        .optional(),
+    })
+    .nullish(),
 });
 export const ListSessionsResponse = zod.array(ListSessionsResponseItem);
 
@@ -102,6 +187,91 @@ export const EndSessionResponse = zod.object({
     })
     .nullish(),
   assignedTherapistId: zod.number().nullish(),
+  agentTrace: zod
+    .object({
+      pipelineVersion: zod.string(),
+      generatedAt: zod.string(),
+      degraded: zod.boolean(),
+      degradedReason: zod.string().optional(),
+      plan: zod.array(zod.string()),
+      planRationale: zod.string().optional(),
+      steps: zod.array(
+        zod.object({
+          stage: zod.string(),
+          label: zod.string(),
+          startedAt: zod.string(),
+          durationMs: zod.number(),
+          status: zod.enum(["ok", "skipped", "fallback", "error"]),
+          summary: zod.string(),
+          detail: zod.unknown().optional(),
+        }),
+      ),
+      clinicalProfileV2: zod
+        .object({
+          primary: zod.object({
+            slug: zod.string(),
+            label: zod.string(),
+            confidence: zod.number(),
+          }),
+          secondary: zod.array(
+            zod.object({
+              slug: zod.string(),
+              label: zod.string(),
+              confidence: zod.number(),
+            }),
+          ),
+          severity: zod.enum(["mild", "moderate", "severe"]),
+          riskFlags: zod.object({
+            suicidalIdeation: zod.boolean(),
+            selfHarm: zod.boolean(),
+            substanceUse: zod.boolean(),
+            crisis: zod.boolean(),
+          }),
+          axisConfidence: zod.object({
+            diagnosis: zod.number(),
+            severity: zod.number(),
+            risk: zod.number(),
+          }),
+          reasoning: zod.string(),
+        })
+        .nullish(),
+      candidatePoolSize: zod.number(),
+      shortlistSize: zod.number(),
+      scored: zod.array(
+        zod.object({
+          therapistId: zod.number(),
+          therapistName: zod.string(),
+          heuristicRank: zod.number(),
+          finalRank: zod.number(),
+          score: zod.number(),
+          features: zod.array(
+            zod.object({
+              feature: zod.string(),
+              label: zod.string(),
+              weight: zod.number(),
+              rawValue: zod.number(),
+              contribution: zod.number(),
+              note: zod.string().optional(),
+            }),
+          ),
+          explanation: zod.string(),
+          critiqueNote: zod.string().optional(),
+          vetoed: zod.boolean().optional(),
+        }),
+      ),
+      finalMatchIds: zod.array(zod.number()),
+      critiqueDiff: zod
+        .array(
+          zod.object({
+            therapistId: zod.number(),
+            from: zod.number(),
+            to: zod.number().nullish(),
+            rationale: zod.string(),
+          }),
+        )
+        .optional(),
+    })
+    .nullish(),
 });
 
 /**
@@ -180,6 +350,91 @@ export const GetSessionBriefResponse = zod.object({
     })
     .nullish(),
   assignedTherapistId: zod.number().nullish(),
+  agentTrace: zod
+    .object({
+      pipelineVersion: zod.string(),
+      generatedAt: zod.string(),
+      degraded: zod.boolean(),
+      degradedReason: zod.string().optional(),
+      plan: zod.array(zod.string()),
+      planRationale: zod.string().optional(),
+      steps: zod.array(
+        zod.object({
+          stage: zod.string(),
+          label: zod.string(),
+          startedAt: zod.string(),
+          durationMs: zod.number(),
+          status: zod.enum(["ok", "skipped", "fallback", "error"]),
+          summary: zod.string(),
+          detail: zod.unknown().optional(),
+        }),
+      ),
+      clinicalProfileV2: zod
+        .object({
+          primary: zod.object({
+            slug: zod.string(),
+            label: zod.string(),
+            confidence: zod.number(),
+          }),
+          secondary: zod.array(
+            zod.object({
+              slug: zod.string(),
+              label: zod.string(),
+              confidence: zod.number(),
+            }),
+          ),
+          severity: zod.enum(["mild", "moderate", "severe"]),
+          riskFlags: zod.object({
+            suicidalIdeation: zod.boolean(),
+            selfHarm: zod.boolean(),
+            substanceUse: zod.boolean(),
+            crisis: zod.boolean(),
+          }),
+          axisConfidence: zod.object({
+            diagnosis: zod.number(),
+            severity: zod.number(),
+            risk: zod.number(),
+          }),
+          reasoning: zod.string(),
+        })
+        .nullish(),
+      candidatePoolSize: zod.number(),
+      shortlistSize: zod.number(),
+      scored: zod.array(
+        zod.object({
+          therapistId: zod.number(),
+          therapistName: zod.string(),
+          heuristicRank: zod.number(),
+          finalRank: zod.number(),
+          score: zod.number(),
+          features: zod.array(
+            zod.object({
+              feature: zod.string(),
+              label: zod.string(),
+              weight: zod.number(),
+              rawValue: zod.number(),
+              contribution: zod.number(),
+              note: zod.string().optional(),
+            }),
+          ),
+          explanation: zod.string(),
+          critiqueNote: zod.string().optional(),
+          vetoed: zod.boolean().optional(),
+        }),
+      ),
+      finalMatchIds: zod.array(zod.number()),
+      critiqueDiff: zod
+        .array(
+          zod.object({
+            therapistId: zod.number(),
+            from: zod.number(),
+            to: zod.number().nullish(),
+            rationale: zod.string(),
+          }),
+        )
+        .optional(),
+    })
+    .nullish(),
 });
 
 /**
@@ -295,4 +550,126 @@ export const MatchTherapistResponse = zod.object({
     .record(zod.string(), zod.string())
     .optional()
     .describe("Map of therapist ID (as string) to human-readable match reason"),
+  clinicalProfileV2: zod
+    .object({
+      primary: zod.object({
+        slug: zod.string(),
+        label: zod.string(),
+        confidence: zod.number(),
+      }),
+      secondary: zod.array(
+        zod.object({
+          slug: zod.string(),
+          label: zod.string(),
+          confidence: zod.number(),
+        }),
+      ),
+      severity: zod.enum(["mild", "moderate", "severe"]),
+      riskFlags: zod.object({
+        suicidalIdeation: zod.boolean(),
+        selfHarm: zod.boolean(),
+        substanceUse: zod.boolean(),
+        crisis: zod.boolean(),
+      }),
+      axisConfidence: zod.object({
+        diagnosis: zod.number(),
+        severity: zod.number(),
+        risk: zod.number(),
+      }),
+      reasoning: zod.string(),
+    })
+    .nullish(),
+  agentTrace: zod
+    .object({
+      pipelineVersion: zod.string(),
+      generatedAt: zod.string(),
+      degraded: zod.boolean(),
+      degradedReason: zod.string().optional(),
+      plan: zod.array(zod.string()),
+      planRationale: zod.string().optional(),
+      steps: zod.array(
+        zod.object({
+          stage: zod.string(),
+          label: zod.string(),
+          startedAt: zod.string(),
+          durationMs: zod.number(),
+          status: zod.enum(["ok", "skipped", "fallback", "error"]),
+          summary: zod.string(),
+          detail: zod.unknown().optional(),
+        }),
+      ),
+      clinicalProfileV2: zod
+        .object({
+          primary: zod.object({
+            slug: zod.string(),
+            label: zod.string(),
+            confidence: zod.number(),
+          }),
+          secondary: zod.array(
+            zod.object({
+              slug: zod.string(),
+              label: zod.string(),
+              confidence: zod.number(),
+            }),
+          ),
+          severity: zod.enum(["mild", "moderate", "severe"]),
+          riskFlags: zod.object({
+            suicidalIdeation: zod.boolean(),
+            selfHarm: zod.boolean(),
+            substanceUse: zod.boolean(),
+            crisis: zod.boolean(),
+          }),
+          axisConfidence: zod.object({
+            diagnosis: zod.number(),
+            severity: zod.number(),
+            risk: zod.number(),
+          }),
+          reasoning: zod.string(),
+        })
+        .nullish(),
+      candidatePoolSize: zod.number(),
+      shortlistSize: zod.number(),
+      scored: zod.array(
+        zod.object({
+          therapistId: zod.number(),
+          therapistName: zod.string(),
+          heuristicRank: zod.number(),
+          finalRank: zod.number(),
+          score: zod.number(),
+          features: zod.array(
+            zod.object({
+              feature: zod.string(),
+              label: zod.string(),
+              weight: zod.number(),
+              rawValue: zod.number(),
+              contribution: zod.number(),
+              note: zod.string().optional(),
+            }),
+          ),
+          explanation: zod.string(),
+          critiqueNote: zod.string().optional(),
+          vetoed: zod.boolean().optional(),
+        }),
+      ),
+      finalMatchIds: zod.array(zod.number()),
+      critiqueDiff: zod
+        .array(
+          zod.object({
+            therapistId: zod.number(),
+            from: zod.number(),
+            to: zod.number().nullish(),
+            rationale: zod.string(),
+          }),
+        )
+        .optional(),
+    })
+    .nullish(),
+  matchExplanations: zod
+    .record(zod.string(), zod.string())
+    .optional()
+    .describe("Map of therapist ID to per-match agent-generated explanation"),
+  featureBreakdown: zod
+    .record(zod.string(), zod.unknown())
+    .optional()
+    .describe("Map of therapist ID to weighted feature contribution breakdown"),
 });

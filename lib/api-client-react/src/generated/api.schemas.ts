@@ -44,6 +44,113 @@ export interface ClinicalBrief {
   clinicalProfile?: string | null;
 }
 
+export type PipelineStepStatus =
+  (typeof PipelineStepStatus)[keyof typeof PipelineStepStatus];
+
+export const PipelineStepStatus = {
+  ok: "ok",
+  skipped: "skipped",
+  fallback: "fallback",
+  error: "error",
+} as const;
+
+export interface PipelineStep {
+  stage: string;
+  label: string;
+  startedAt: string;
+  durationMs: number;
+  status: PipelineStepStatus;
+  summary: string;
+  detail?: unknown;
+}
+
+export type ClinicalProfileV2Severity =
+  (typeof ClinicalProfileV2Severity)[keyof typeof ClinicalProfileV2Severity];
+
+export const ClinicalProfileV2Severity = {
+  mild: "mild",
+  moderate: "moderate",
+  severe: "severe",
+} as const;
+
+export type ClinicalProfileV2Primary = {
+  slug: string;
+  label: string;
+  confidence: number;
+};
+
+export type ClinicalProfileV2SecondaryItem = {
+  slug: string;
+  label: string;
+  confidence: number;
+};
+
+export type ClinicalProfileV2RiskFlags = {
+  suicidalIdeation: boolean;
+  selfHarm: boolean;
+  substanceUse: boolean;
+  crisis: boolean;
+};
+
+export type ClinicalProfileV2AxisConfidence = {
+  diagnosis: number;
+  severity: number;
+  risk: number;
+};
+
+export interface ClinicalProfileV2 {
+  primary: ClinicalProfileV2Primary;
+  secondary: ClinicalProfileV2SecondaryItem[];
+  severity: ClinicalProfileV2Severity;
+  riskFlags: ClinicalProfileV2RiskFlags;
+  axisConfidence: ClinicalProfileV2AxisConfidence;
+  reasoning: string;
+}
+
+export interface FeatureContribution {
+  feature: string;
+  label: string;
+  weight: number;
+  rawValue: number;
+  contribution: number;
+  note?: string;
+}
+
+export interface ScoredCandidate {
+  therapistId: number;
+  therapistName: string;
+  heuristicRank: number;
+  finalRank: number;
+  score: number;
+  features: FeatureContribution[];
+  explanation: string;
+  critiqueNote?: string;
+  vetoed?: boolean;
+}
+
+export type AgentTraceCritiqueDiffItem = {
+  therapistId: number;
+  from: number;
+  to?: number | null;
+  rationale: string;
+};
+
+export interface AgentTrace {
+  pipelineVersion: string;
+  generatedAt: string;
+  degraded: boolean;
+  degradedReason?: string;
+  plan: string[];
+  planRationale?: string;
+  steps: PipelineStep[];
+  clinicalProfileV2?: ClinicalProfileV2 | null;
+  candidatePoolSize: number;
+  shortlistSize: number;
+  scored: ScoredCandidate[];
+  finalMatchIds: number[];
+  critiqueDiff?: AgentTraceCritiqueDiffItem[];
+}
+
 export interface IntakeSession {
   id: number;
   label?: string | null;
@@ -51,6 +158,7 @@ export interface IntakeSession {
   endedAt?: string | null;
   clinicalBrief?: ClinicalBrief | null;
   assignedTherapistId?: number | null;
+  agentTrace?: AgentTrace | null;
 }
 
 export type BiometricBatchItemMetric =
@@ -129,9 +237,25 @@ export interface MatchRequest {
  */
 export type MatchResponseMatchReasons = { [key: string]: string };
 
+/**
+ * Map of therapist ID to per-match agent-generated explanation
+ */
+export type MatchResponseMatchExplanations = { [key: string]: string };
+
+/**
+ * Map of therapist ID to weighted feature contribution breakdown
+ */
+export type MatchResponseFeatureBreakdown = { [key: string]: unknown };
+
 export interface MatchResponse {
   matches: Therapist[];
   inferredProfile?: string | null;
   /** Map of therapist ID (as string) to human-readable match reason */
   matchReasons?: MatchResponseMatchReasons;
+  clinicalProfileV2?: ClinicalProfileV2 | null;
+  agentTrace?: AgentTrace | null;
+  /** Map of therapist ID to per-match agent-generated explanation */
+  matchExplanations?: MatchResponseMatchExplanations;
+  /** Map of therapist ID to weighted feature contribution breakdown */
+  featureBreakdown?: MatchResponseFeatureBreakdown;
 }
